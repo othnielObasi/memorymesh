@@ -16,6 +16,6 @@
     "demo:oss": "./scripts/demo_open_source_cognee.sh",
     "demo:cloud": "./scripts/demo_cognee_cloud.sh",
     "demo:dual": "python scripts/run_hackathon_demo.py --dual",
-    "build:all": "npm run build:agent && npm run build:console && npm --workspace @memorymesh/sdk run build"
+    "build:all": "npm run build:agent && npm run build:console && npm --workspace @memorymsh/sdk run build"
   }
 }

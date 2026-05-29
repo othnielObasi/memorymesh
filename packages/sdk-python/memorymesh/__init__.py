@@ -1,4 +1,4 @@
-from .client import MemoryMeshClient
+from .client import MemoryMeshClient, MemoryMeshError
 from .models import ApprovedMemory, Checkpoint, RunEvent, ToolTrace
 from .adapters import (
     MemoryMeshCheckpointer,
@@ -11,6 +11,7 @@ from .adapters import (
 
 __all__ = [
     "MemoryMeshClient",
+    "MemoryMeshError",
     "RunEvent",
     "ToolTrace",
     "Checkpoint",

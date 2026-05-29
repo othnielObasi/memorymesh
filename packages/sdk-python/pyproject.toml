@@ -1,9 +1,35 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
-name = "memorymesh"
+name = "memorymesh-sdk"
 version = "0.1.0"
 description = "MemoryMesh SDK for durable runtime memory, checkpoints, recovery, and adapters for agent frameworks."
+readme = "README.md"
 requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "MemoryMesh" }]
+keywords = ["memorymesh", "cognee", "agent-memory", "ai-agents", "checkpoints", "tool-tracing", "llm"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/othnielObasi/memorymesh"
+Repository = "https://github.com/othnielObasi/memorymesh"
+Documentation = "https://github.com/othnielObasi/memorymesh/tree/main/docs"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["memorymesh*"]
+
+[tool.setuptools.package-data]
+memorymesh = ["py.typed"]

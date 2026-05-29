@@ -34,48 +34,75 @@ const CONFIG: Record<Method, { filename: string; code: (id: string) => string }>
       "command": "npx",
       "args": ["-y", "@memorymesh/mcp-server"],
       "env": {
-        "MM_API_KEY":  "mm_demo_xxxxxxxxxxxx",
+        "MM_API_URL": "http://127.0.0.1:8000/api",
+        "MM_API_KEY": "mm_local_or_cloud_key",
         "MM_AGENT_ID": "${id}-primary",
-        "MM_MEMORY":   "demo"
+        "MM_MEMORY_BACKEND": "local_cognee",
+        "MM_PROJECT": "current-repo"
       }
     }
   }
 }`,
   },
   API: {
-    filename: 'session.ts',
-    code: id => `import { MemoryMesh } from '@memorymesh/sdk';
+    filename: 'AGENTS.md',
+    code: id => `# MemoryMesh instructions for ${id}
 
-const mm = new MemoryMesh({ apiKey: 'mm_demo_xxxxxxxxxxxx' });
+Before editing code:
+1. Recall project memory:
+   POST http://127.0.0.1:8000/api/memory/recall
+   {
+     "backend": "local_cognee",
+     "dataset": "current-repo",
+     "query": "What project decisions, failures, test signals, and handoff notes matter for this task?"
+   }
 
-// Session start — restore context
-const ctx = await mm.recall({ agentId: '${id}' });
-console.log(ctx.summary);
+During work:
+- Prefer the relevant files and next actions from the MemoryMesh receipt.
+- Do not store secrets.
+- Save decisions, test failures, and final proof back to MemoryMesh.
 
-// During session — persist decisions
-await mm.remember({
-  agentId: '${id}',
-  content: 'Refactoring auth module — using argon2id',
-});
+After work:
+POST http://127.0.0.1:8000/api/memory/remember
+{
+  "backend": "local_cognee",
+  "dataset": "current-repo",
+  "text": "Decision/proof from this ${id} run..."
+}
 
-// Session end — improve and clean up
-await mm.improve({ agentId: '${id}' });`,
+POST http://127.0.0.1:8000/api/memory/improve
+{
+  "backend": "local_cognee",
+  "dataset": "current-repo",
+  "feedback": "What future agents should do better next time."
+}`,
   },
   SDK: {
     filename: 'agent.py',
-    code: id => `from memorymesh import MemoryMesh
+    code: id => `import requests
 
-mm = MemoryMesh(api_key="mm_demo_xxxxxxxxxxxx")
+API = "http://127.0.0.1:8000/api"
+DATASET = "current-repo"
 
-with mm.session(agent_id="${id}") as ctx:
-    print(ctx.memory.summary)  # full prior context
+def recall(task: str):
+    return requests.post(f"{API}/memory/recall", json={
+        "backend": "local_cognee",
+        "dataset": DATASET,
+        "query": task,
+        "metadata": {"agent_id": "${id}"}
+    }).json()
 
-    result = your_agent.run(
-        task="Continue where we left off",
-        context=ctx.memory.to_prompt(),
-    )
-    ctx.remember(result.decisions)
-    # auto-commits and improves on exit`,
+def remember(text: str):
+    return requests.post(f"{API}/memory/remember", json={
+        "backend": "local_cognee",
+        "dataset": DATASET,
+        "text": text,
+        "metadata": {"agent_id": "${id}"}
+    }).json()
+
+context = recall("Restore project memory before this agent run")
+result = your_agent.run(task="Continue the coding task", context=context)
+remember(str(result))`,
   },
 };
 

@@ -96,7 +96,8 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> List[str]:
-        return list({self.frontend_origin, 'http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'})
+        configured = [origin.strip() for origin in self.frontend_origin.split(',') if origin.strip()]
+        return list({*configured, 'http://localhost:3000', 'http://localhost:5173', 'http://127.0.0.1:5173'})
 
     @property
     def aws_ready(self) -> bool:

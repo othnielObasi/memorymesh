@@ -45,6 +45,7 @@ See:
 
 - `docs/WORKSPACE_AND_UI_BLUEPRINT.md`
 - `docs/UI_DESIGN_SPEC.md`
+- `docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md`
 - `docs/ADOPTION_READY_PRODUCT_STRATEGY.md`
 - `docs/CONNECTED_AGENTS_MCP_API_SDK.md`
 - `docs/COGNEE_VS_MEMORYMESH.md`
@@ -148,6 +149,14 @@ cp .env.oss.example .env
 docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up --build
 ```
 
+For the self-hosted operator UI, open:
+
+```text
+http://127.0.0.1:5174/?mode=local
+```
+
+Local mode is intentionally separate from the cloud/product shell. It shows local Cognee status, recent memory events, manual recall, and a local recovery test without Product, Pricing, or Docs navigation.
+
 Then run the smoke/demo script:
 
 ```bash
@@ -201,6 +210,7 @@ The response contains separate `local_cognee` and `cognee_cloud` runs, each with
 
 ```text
 GET  /api/memory/status?backend=local_cognee
+GET  /api/memory/events?backend=local_cognee
 POST /api/memory/remember
 POST /api/memory/recall
 POST /api/memory/improve
@@ -224,7 +234,7 @@ All memory lifecycle endpoints accept an optional `backend` field:
 ## Repository map
 
 ```text
-apps/coding-agent-demo/                 Main user-facing workspace UI: run agent / connect your agent
+apps/coding-agent-demo/                 Main workspace UI plus ?mode=local self-hosted memory console
 apps/console/                           Broader platform console
 services/api/                           FastAPI runtime + Cognee backend router
 services/api/app/services/cognee_memory.py
@@ -241,6 +251,7 @@ docs/DUAL_BACKEND_PRIZE_STRATEGY.md
 docs/UI_DESIGN_SPEC.md              UI design, screen structure, interaction model, and acceptance checklist
 docs/UI_IMPLEMENTATION_NOTES.md     Implemented UI changes, acceptance checklist, and validation notes
 docs/WORKSPACE_AND_UI_BLUEPRINT.md  Consolidated product workspace and UI design
+docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md Local/self-hosted MemoryMesh console on top of Cognee
 docs/CONNECTED_AGENTS_MCP_API_SDK.md Connected-agent model for Cursor, Codex, Claude Code, OpenClaw, custom agents
 docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastructure and MemoryMesh product layer
 ```

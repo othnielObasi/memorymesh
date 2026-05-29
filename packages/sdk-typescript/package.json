@@ -1,11 +1,42 @@
 {
-  "name": "@memorymesh/sdk",
+  "name": "@memorymsh/sdk",
   "version": "0.1.0",
+  "description": "TypeScript SDK for MemoryMesh durable agent memory, receipts, checkpoints, and Cognee-backed runtime state.",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/othnielObasi/memorymesh.git",
+    "directory": "packages/sdk-typescript"
+  },
+  "keywords": [
+    "memorymesh",
+    "cognee",
+    "agent-memory",
+    "ai-agents",
+    "checkpoints",
+    "tool-tracing",
+    "llm"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "typescript": "^5.0.0"

@@ -1,6 +1,6 @@
-import { MemoryMeshClient } from "../client";
-import type { Json } from "../types";
-import { wrapTool } from "./toolWrapper";
+import { MemoryMeshClient } from "../client.js";
+import type { Json } from "../types.js";
+import { wrapTool } from "./toolWrapper.js";
 
 export class MemoryMeshCrewAIAdapter {
   constructor(

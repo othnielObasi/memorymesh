@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { toast, Toaster } from 'sonner';
 import { LandingPage } from './LandingPage';
 import { Topbar } from './components/Topbar';
@@ -11,6 +11,7 @@ import { OutcomeSection } from './components/OutcomeSection';
 import { MemoryLocationsSection } from './components/MemoryLocationsSection';
 import { MemoryBrowser } from './components/MemoryBrowser';
 import { WorkspaceEmptyState } from './components/WorkspaceEmptyState';
+import { ProjectConnectionPanel, type ConnectedProject, type ProjectSource } from './components/ProjectConnectionPanel';
 
 export interface MemoryActivity {
   id: string;
@@ -44,10 +45,32 @@ export interface SessionRecord {
 
 export type ConnectionState = 'idle' | 'setup' | 'connecting' | 'live' | 'complete';
 
+type RuntimeStatus = {
+  backend: string;
+  provider: string;
+  ready: boolean;
+  fallback_allowed?: boolean;
+  import_error?: string | null;
+  notes?: string[];
+};
+
 const ts = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+const resolveApiBase = () => {
+  if (import.meta.env.VITE_MEMORYMESH_API_BASE_URL) {
+    return import.meta.env.VITE_MEMORYMESH_API_BASE_URL;
+  }
+  if (window.location.protocol === 'file:') {
+    return 'http://127.0.0.1:8000';
+  }
+  if (['3000', '5173', '5174'].includes(window.location.port)) {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return window.location.origin;
+};
+
 const API_BASE =
-  import.meta.env.VITE_MEMORYMESH_API_BASE_URL ||
-  `${window.location.protocol}//${window.location.hostname}:8000`;
+  resolveApiBase();
 
 type RunStep = {
   progress: number;
@@ -172,7 +195,7 @@ function memoryBackend(location: 'local' | 'cloud' | 'demo') {
   return 'offline_mirror';
 }
 
-async function runBackendAgent(agentId: string | null, task: string, location: 'local' | 'cloud' | 'demo') {
+async function runBackendAgent(agentId: string | null, task: string, location: 'local' | 'cloud' | 'demo', project?: ConnectedProject | null) {
   const response = await fetch(`${API_BASE}/api/agents/run`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -180,6 +203,9 @@ async function runBackendAgent(agentId: string | null, task: string, location: '
       agent_id: agentId || 'build',
       task,
       memory_backend: memoryBackend(location),
+      repository_name: project?.repositoryName,
+      workspace_path: project?.workspacePath,
+      github_url: project?.githubUrl,
     }),
   });
   if (!response.ok) {
@@ -225,7 +251,30 @@ function outcomeFromReceipt(receipt: any): OutcomeData {
   };
 }
 
+function memoryActivitiesFromReceipt(receipt: any): MemoryActivity[] {
+  const operations = Array.isArray(receipt?.memory_operations) ? receipt.memory_operations : [];
+  return operations.map((op: any, index: number) => {
+    const rawType = String(op.operation || 'remember').toLowerCase();
+    const type = (['remember', 'recall', 'improve', 'forget'].includes(rawType) ? rawType : 'remember') as MemoryActivity['type'];
+    const backend = op.backend || 'local_cognee';
+    const status = op.status || 'recorded';
+    const dataset = op.dataset ? ` dataset=${op.dataset}` : '';
+    const nativeState = op.fallback_used ? 'fallback used' : 'native local Cognee';
+    const content = op.content ? ` - ${String(op.content).replace(/\s+/g, ' ').slice(0, 120)}` : '';
+    return {
+      id: op.operation_id || `local-${Date.now()}-${index}`,
+      type,
+      timestamp: ts(),
+      description: `${status}${dataset} via ${backend} (${nativeState})${content}`,
+    };
+  });
+}
+
 export default function App() {
+  const isLocalConsole =
+    new URLSearchParams(window.location.search).get('mode') === 'local' ||
+    window.location.pathname.toLowerCase().includes('local');
+
   const [view, setView] = useState<'landing' | 'workspace'>('landing');
   const [mode, setMode] = useState<'run' | 'connect'>('run');
   const sessionRef = useRef<HTMLDivElement>(null);
@@ -233,7 +282,16 @@ export default function App() {
   // run-mode
   const [selectedAgent, setSelectedAgent] = useState<string | null>('build');
   const [taskInput, setTaskInput] = useState('');
-  const [memoryLocation, setMemoryLocation] = useState<'local' | 'cloud' | 'demo'>('demo');
+  const [memoryLocation, setMemoryLocation] = useState<'local' | 'cloud' | 'demo'>(isLocalConsole ? 'local' : 'demo');
+  const [projectSource, setProjectSource] = useState<ProjectSource>('sample');
+  const [localProjectPath, setLocalProjectPath] = useState('');
+  const [githubProjectUrl, setGithubProjectUrl] = useState('');
+  const [connectedProject, setConnectedProject] = useState<ConnectedProject | null>({
+    source: 'sample',
+    repositoryName: 'sample-dashboard-service',
+  });
+  const [projectUploadBusy, setProjectUploadBusy] = useState(false);
+  const [projectUploadError, setProjectUploadError] = useState<string | null>(null);
   const [sessionActive, setSessionActive] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -254,12 +312,40 @@ export default function App() {
 
   // shared history
   const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
+  const [localRuntime, setLocalRuntime] = useState<RuntimeStatus | null>(null);
+  const [localRuntimeError, setLocalRuntimeError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isLocalConsole) return;
+    let alive = true;
+
+    fetch(`${API_BASE}/api/memory/status?backend=local_cognee&probe=true`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`Local runtime probe failed: ${response.status}`);
+        return response.json();
+      })
+      .then((status) => {
+        if (!alive) return;
+        setLocalRuntime(status);
+        setLocalRuntimeError(null);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setLocalRuntime(null);
+        setLocalRuntimeError(error instanceof Error ? error.message : 'Could not reach the local MemoryMesh API.');
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [isLocalConsole]);
 
   const addHistory = (rec: Omit<SessionRecord, 'id'>) =>
     setSessionHistory(h => [{ ...rec, id: Date.now().toString() }, ...h].slice(0, 10));
 
   // ── Mode switch ────────────────────────────────────────────────────
   const handleModeChange = (m: 'run' | 'connect') => {
+    if (isLocalConsole && m !== 'run') return;
     if (sessionActive) {
       toast.warning('Session in progress', { description: 'Wait for the session to complete before switching modes.' });
       return;
@@ -284,6 +370,56 @@ export default function App() {
     setTaskInput('');
   };
 
+  const handleUseSampleProject = () => {
+    setProjectUploadError(null);
+    setConnectedProject({ source: 'sample', repositoryName: 'sample-dashboard-service' });
+    toast.success('Sample project connected');
+  };
+
+  const handleConnectLocalPath = () => {
+    const path = localProjectPath.trim();
+    if (!path) return;
+    setProjectUploadError(null);
+    const name = path.split(/[\\/]/).filter(Boolean).pop() || 'local-project';
+    setConnectedProject({ source: 'local_path', repositoryName: name, workspacePath: path });
+    toast.success('Local folder connected', { description: name });
+  };
+
+  const handleConnectGithub = () => {
+    const url = githubProjectUrl.trim();
+    if (!url) return;
+    setProjectUploadError(null);
+    const name = url.replace(/\.git\/?$/, '').split('/').filter(Boolean).pop() || 'github-project';
+    setConnectedProject({ source: 'github_url', repositoryName: name, githubUrl: url });
+    toast.success('GitHub repo connected', { description: name });
+  };
+
+  const handleUploadZip = async (file: File) => {
+    setProjectUploadBusy(true);
+    setProjectUploadError(null);
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const response = await fetch(`${API_BASE}/api/projects/upload`, { method: 'POST', body: form });
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text || `Upload failed: ${response.status}`);
+      }
+      const result = await response.json();
+      setConnectedProject({
+        source: 'zip_upload',
+        repositoryName: result.repository_name || file.name.replace(/\.zip$/i, ''),
+        workspacePath: result.workspace_path,
+      });
+      toast.success('Zip project connected', { description: result.repository_name || file.name });
+    } catch (error) {
+      setProjectUploadError(String(error).slice(0, 220));
+      toast.error('Zip upload failed', { description: String(error).slice(0, 90) });
+    } finally {
+      setProjectUploadBusy(false);
+    }
+  };
+
   // ── Disconnect ─────────────────────────────────────────────────────
   const handleDisconnect = () => {
     setConnectionState('idle');
@@ -297,11 +433,77 @@ export default function App() {
   };
 
   // ── Run simulation ─────────────────────────────────────────────────
-  const handleStartSession = () => {
+  const handleStartSession = async () => {
     if (mode !== 'run') return;
     const profile = RUN_PROFILES[selectedAgent || 'build'] ?? RUN_PROFILES.build;
     const runTask = taskInput || profile.fallbackTask;
-    const backendRun = runBackendAgent(selectedAgent, runTask, memoryLocation)
+
+    if (isLocalConsole) {
+      if (!selectedAgent || !taskInput.trim()) return;
+      if (localRuntime && !localRuntime.ready) {
+        toast.warning('Local Cognee is not ready', {
+          description: localRuntime.fallback_allowed
+            ? 'This run will be marked as fallback unless the local Cognee SDK is available.'
+            : 'Install/start local Cognee before running.',
+        });
+      }
+      setMemoryLocation('local');
+      setSessionActive(true);
+      setSessionDone(false);
+      setProgress(8);
+      setAgentStatus(`Running ${profile.name} with private local Cognee...`);
+      setAgentThought('Creating a backend run receipt against local_cognee.');
+      setMemoryActivity([]);
+      setRecoveryData(null);
+      setOutcomeData(null);
+      toast.success('Local session started', { description: `${profile.name} - private local memory` });
+      setTimeout(() => sessionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+
+      try {
+        setProgress(35);
+        setAgentStatus('Writing and recalling local memory...');
+        const receipt = await runBackendAgent(selectedAgent, taskInput.trim(), 'local', connectedProject);
+        const activities = memoryActivitiesFromReceipt(receipt);
+        setMemoryActivity(
+          activities.length
+            ? activities
+            : [{
+                id: `local-${Date.now()}`,
+                type: 'remember',
+                timestamp: ts(),
+                description: 'Backend returned a local Cognee receipt.',
+              }],
+        );
+        setRecoveryData(recoveryFromReceipt(receipt));
+        setOutcomeData(outcomeFromReceipt(receipt));
+        setProgress(100);
+        setAgentStatus('Local session complete');
+        setAgentThought('');
+        setSessionDone(true);
+        addHistory({
+          type: 'run',
+          agent: receipt.agent_name || profile.name,
+          task: taskInput.trim(),
+          memoryCount: activities.length,
+          time: ts(),
+        });
+        const usedFallback = activities.some((item) => item.description.includes('fallback used'));
+        if (usedFallback) {
+          toast.warning('Receipt used offline mirror fallback', { description: 'Local Cognee was not available for at least one memory operation.' });
+        } else {
+          toast.success('Local receipt ready', { description: `${receipt.agent_name || profile.name} used local Cognee.` });
+        }
+      } catch (error) {
+        setAgentStatus('Local session failed');
+        setAgentThought('');
+        toast.error('Local run failed', { description: String(error).slice(0, 90) });
+      } finally {
+        setSessionActive(false);
+      }
+      return;
+    }
+
+    const backendRun = runBackendAgent(selectedAgent, runTask, memoryLocation, connectedProject)
       .then((receipt) => ({ receipt }))
       .catch((error) => ({ error }));
     setSessionActive(true);
@@ -491,6 +693,122 @@ export const verifyPassword = (pw: string, hash: string) =>
       setTimeout(runLive, 500);
     }, 3000);
   };
+
+  if (isLocalConsole) {
+    const localReady = Boolean(localRuntime?.ready);
+    const localStatusText = localRuntimeError
+      ? localRuntimeError
+      : localRuntime
+        ? localReady
+          ? 'Local Cognee is available.'
+          : localRuntime.fallback_allowed
+            ? 'Local Cognee is not available. Runs will be marked as offline-mirror fallback until the SDK/runtime is installed.'
+            : 'Local Cognee is not ready and fallback is disabled.'
+        : 'Checking local Cognee runtime...';
+    const localStatusClass = localReady
+      ? 'border-green-400/20 bg-green-400/5 text-green-300'
+      : 'border-amber-300/20 bg-amber-300/5 text-amber-200';
+
+    return (
+      <div className="min-h-screen bg-background">
+        <Toaster position="bottom-right" theme="dark" />
+        <Topbar
+          memoryStatus={localRuntime ? (localReady ? 'ready' : 'offline') : 'connecting'}
+          serviceStatus={localRuntimeError ? 'degraded' : 'operational'}
+        />
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+          <section className="rounded-xl border border-green-400/20 bg-green-400/5 px-5 py-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-mono-ui uppercase tracking-widest text-green-300">Self-hosted workspace</p>
+                <h1 className="mt-1 text-2xl font-semibold text-foreground">Private local Cognee memory</h1>
+                <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
+                  Connect a codebase, choose a workflow, then run it against the configured local memory backend.
+                </p>
+              </div>
+              <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${localStatusClass}`}>
+                <span className={`h-2 w-2 rounded-full ${localReady ? 'bg-green-300' : 'bg-amber-300'}`} />
+                {localReady ? 'local_cognee ready' : 'local_cognee needs setup'}
+              </div>
+            </div>
+            <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${localStatusClass}`}>
+              <div className="font-medium">{localStatusText}</div>
+              {localRuntime?.import_error && (
+                <div className="mt-1 text-xs opacity-80">Runtime detail: {localRuntime.import_error}</div>
+              )}
+            </div>
+          </section>
+
+          <ProjectConnectionPanel
+            source={projectSource}
+            onSourceChange={setProjectSource}
+            localPath={localProjectPath}
+            onLocalPathChange={setLocalProjectPath}
+            githubUrl={githubProjectUrl}
+            onGithubUrlChange={setGithubProjectUrl}
+            connectedProject={connectedProject}
+            uploadBusy={projectUploadBusy}
+            uploadError={projectUploadError}
+            onUseSample={handleUseSampleProject}
+            onConnectLocalPath={handleConnectLocalPath}
+            onConnectGithub={handleConnectGithub}
+            onUploadZip={handleUploadZip}
+          />
+
+          <AgentsSection selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} mode="run" surface="local" />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-5">
+              <WorkspacePanel
+                mode="run"
+                onModeChange={handleModeChange}
+                taskInput={taskInput}
+                onTaskInputChange={setTaskInput}
+                memoryLocation="local"
+                onMemoryLocationChange={() => setMemoryLocation('local')}
+                selectedAgent={selectedAgent}
+                selectedConnection={selectedConnection}
+                onStartSession={handleStartSession}
+                onConnect={handleConnect}
+                onNewSession={handleNewSession}
+                sessionActive={sessionActive}
+                sessionDone={sessionDone}
+                connectionState={connectionState}
+                sessionHistory={sessionHistory}
+                lockedMemoryLocation
+                runOnly
+              />
+              <MemoryBrowser
+                activity={memoryActivity}
+                memoryLocation="local"
+                isActive={sessionActive}
+              />
+            </div>
+
+            <div className="lg:col-span-2 space-y-6">
+              {!sessionActive && !sessionDone && (
+                <WorkspaceEmptyState selectedAgent={selectedAgent} onSuggest={setTaskInput} />
+              )}
+              <div ref={sessionRef}>
+                <SessionSection
+                  sessionActive={sessionActive}
+                  progress={progress}
+                  memoryActivity={memoryActivity}
+                  agentStatus={agentStatus}
+                  agentThought={agentThought}
+                  memoryLocation="local"
+                  mode="run"
+                />
+              </div>
+              <RecoverySection recoveryData={recoveryData} />
+              <OutcomeSection outcomeData={outcomeData} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'landing') {
     return (

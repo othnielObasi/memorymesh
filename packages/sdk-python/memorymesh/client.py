@@ -1,6 +1,18 @@
 import json
+import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any, Dict, Iterator, Optional
+
+
+class MemoryMeshError(RuntimeError):
+    """Raised when the MemoryMesh API returns a non-success response."""
+
+    def __init__(self, message: str, status: int, body: str = "", detail: Any = None):
+        super().__init__(message)
+        self.status = status
+        self.body = body
+        self.detail = detail
 
 
 class MemoryMeshClient:
@@ -10,20 +22,54 @@ class MemoryMeshClient:
     tool traces, checkpoints, recovery, idempotent actions, and approved memory.
     """
 
-    def __init__(self, base_url: str, api_key: Optional[str] = None, timeout: int = 30):
+    def __init__(
+        self,
+        base_url: str,
+        api_key: Optional[str] = None,
+        timeout: int = 30,
+        api_key_header: str = "X-MemoryMesh-API-Key",
+        default_memory_backend: Optional[str] = None,
+        default_headers: Optional[Dict[str, str]] = None,
+    ):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
+        self.api_key_header = api_key_header
+        self.default_memory_backend = default_memory_backend
+        self.default_headers = default_headers or {}
+
+    def _auth_headers(self) -> Dict[str, str]:
+        if not self.api_key:
+            return {}
+        if self.api_key_header.lower() == "authorization":
+            value = self.api_key if self.api_key.lower().startswith("bearer ") else f"Bearer {self.api_key}"
+            return {"Authorization": value}
+        return {self.api_key_header: self.api_key}
 
     def _request(self, method: str, path: str, payload: Optional[Dict[str, Any]] = None) -> Dict[str, Any] | list[Any]:
         data = None if payload is None else json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers = {"Content-Type": "application/json", **self.default_headers, **self._auth_headers()}
         req = urllib.request.Request(f"{self.base_url}{path}", data=data, headers=headers, method=method)
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            body = resp.read().decode("utf-8")
-            return json.loads(body) if body else {}
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                body = resp.read().decode("utf-8")
+                return json.loads(body) if body else {}
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode("utf-8", errors="replace")
+            detail: Any = None
+            try:
+                parsed = json.loads(body) if body else {}
+                detail = parsed.get("detail") or parsed.get("message")
+            except json.JSONDecodeError:
+                parsed = {}
+            message = detail if isinstance(detail, str) else f"MemoryMesh request failed: {exc.code}"
+            raise MemoryMeshError(message, exc.code, body, detail=detail) from exc
+
+    def health(self) -> Dict[str, Any]:
+        return self._request("GET", "/health")  # type: ignore[return-value]
+
+    def system_status(self) -> Dict[str, Any]:
+        return self._request("GET", "/api/system/status")  # type: ignore[return-value]
 
     def start_run(self, agent_id: str, task: str, dataset_type: str = "support_tickets", **kwargs: Any) -> Dict[str, Any]:
         return self._request("POST", "/api/tasks/run", {"agent_id": agent_id, "task_description": task, "dataset_type": dataset_type, **kwargs})  # type: ignore[return-value]
@@ -94,9 +140,7 @@ class MemoryMeshClient:
         return self._request("GET", f"/api/runs/{task_id}/events")  # type: ignore[return-value]
 
     def stream_events(self, task_id: str) -> Iterator[Dict[str, Any]]:
-        headers = {}
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
+        headers = {**self.default_headers, **self._auth_headers()}
         req = urllib.request.Request(f"{self.base_url}/api/runs/{task_id}/stream", headers=headers, method="GET")
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             for raw_line in resp:
@@ -112,25 +156,44 @@ class MemoryMeshClient:
 
 
     def memory_status(self, backend: Optional[str] = None, probe: bool = False) -> Dict[str, Any]:
-        query = []
-        if backend:
-            query.append(f"backend={backend}")
+        query = {}
+        selected_backend = backend or self.default_memory_backend
+        if selected_backend:
+            query["backend"] = selected_backend
         if probe:
-            query.append("probe=true")
-        suffix = f"?{'&'.join(query)}" if query else ""
+            query["probe"] = "true"
+        suffix = f"?{urllib.parse.urlencode(query)}" if query else ""
         return self._request("GET", f"/api/memory/status{suffix}")  # type: ignore[return-value]
 
     def remember(self, text: str, dataset: str = "memorymesh-agent-work-memory", session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None, backend: Optional[str] = None) -> Dict[str, Any]:
-        return self._request("POST", "/api/memory/remember", {"text": text, "dataset": dataset, "session_id": session_id, "metadata": metadata or {}, "backend": backend})  # type: ignore[return-value]
+        return self._request("POST", "/api/memory/remember", {"text": text, "dataset": dataset, "session_id": session_id, "metadata": metadata or {}, "backend": backend or self.default_memory_backend})  # type: ignore[return-value]
 
     def recall(self, query: str, dataset: str = "memorymesh-agent-work-memory", session_id: Optional[str] = None, top_k: int = 5, metadata: Optional[Dict[str, Any]] = None, backend: Optional[str] = None) -> Dict[str, Any]:
-        return self._request("POST", "/api/memory/recall", {"query": query, "dataset": dataset, "session_id": session_id, "top_k": top_k, "metadata": metadata or {}, "backend": backend})  # type: ignore[return-value]
+        return self._request("POST", "/api/memory/recall", {"query": query, "dataset": dataset, "session_id": session_id, "top_k": top_k, "metadata": metadata or {}, "backend": backend or self.default_memory_backend})  # type: ignore[return-value]
 
     def improve_memory(self, feedback: str, dataset: str = "memorymesh-agent-work-memory", session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None, backend: Optional[str] = None) -> Dict[str, Any]:
-        return self._request("POST", "/api/memory/improve", {"feedback": feedback, "dataset": dataset, "session_id": session_id, "metadata": metadata or {}, "backend": backend})  # type: ignore[return-value]
+        return self._request("POST", "/api/memory/improve", {"feedback": feedback, "dataset": dataset, "session_id": session_id, "metadata": metadata or {}, "backend": backend or self.default_memory_backend})  # type: ignore[return-value]
 
     def forget_memory(self, dataset: str = "memorymesh-agent-work-memory", session_id: Optional[str] = None, everything: bool = False, backend: Optional[str] = None) -> Dict[str, Any]:
-        return self._request("POST", "/api/memory/forget", {"dataset": dataset, "session_id": session_id, "everything": everything, "backend": backend})  # type: ignore[return-value]
+        return self._request("POST", "/api/memory/forget", {"dataset": dataset, "session_id": session_id, "everything": everything, "backend": backend or self.default_memory_backend})  # type: ignore[return-value]
+
+    def run_agent(
+        self,
+        task: str,
+        agent_id: str = "build",
+        repository_name: Optional[str] = None,
+        workspace_path: Optional[str] = None,
+        github_url: Optional[str] = None,
+        backend: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        return self._request("POST", "/api/agents/run", {
+            "agent_id": agent_id,
+            "task": task,
+            "repository_name": repository_name,
+            "workspace_path": workspace_path,
+            "github_url": github_url,
+            "backend": backend or self.default_memory_backend,
+        })  # type: ignore[return-value]
 
     def run_coding_agent(self, task: str = "Fix dashboard RBAC so only admins can access the dashboard.", repository_name: str = "sample-dashboard-service", **kwargs: Any) -> Dict[str, Any]:
         return self._request("POST", "/api/coding-agent/run", {"task": task, "repository_name": repository_name, **kwargs})  # type: ignore[return-value]

@@ -1,5 +1,5 @@
-import { MemoryMeshClient } from "../client";
-import type { Json } from "../types";
+import { MemoryMeshClient } from "../client.js";
+import type { Json } from "../types.js";
 
 export type GraphState = Record<string, Json>;
 

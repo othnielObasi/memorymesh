@@ -253,8 +253,94 @@ class MemoryMeshCodingAgentService:
         workspace = (self.workspace_root / f"{repository_name}-{new_id('run')}").resolve()
         if reset_workspace and workspace.exists():
             shutil.rmtree(workspace)
-        shutil.copytree(self.sample_repo, workspace)
+        if self.sample_repo.exists():
+            shutil.copytree(self.sample_repo, workspace)
+        else:
+            self._create_embedded_sample_repo(workspace)
         return workspace
+
+    def _create_embedded_sample_repo(self, workspace: Path) -> None:
+        """Create the sample repo when repo-level examples are not bundled.
+
+        Vercel deploys the API from services/api, so the monorepo examples
+        directory is not guaranteed to exist inside the serverless function.
+        """
+        workspace.mkdir(parents=True, exist_ok=False)
+        (workspace / "app").mkdir()
+        (workspace / "tests").mkdir()
+        (workspace / "app" / "__init__.py").write_text("", encoding="utf-8")
+        (workspace / "app" / "auth.py").write_text(
+            """from __future__ import annotations
+
+USERS = {
+    "admin@example.com": {"email": "admin@example.com", "role": "admin"},
+    "viewer@example.com": {"email": "viewer@example.com", "role": "viewer"},
+}
+
+
+def get_user(email: str | None) -> dict[str, str] | None:
+    if not email:
+        return None
+    return USERS.get(email)
+""",
+            encoding="utf-8",
+        )
+        (workspace / "app" / "dashboard.py").write_text(
+            """from __future__ import annotations
+
+
+def can_access_dashboard(user: dict[str, str] | None) -> bool:
+    \"\"\"Return whether the current user can open the admin dashboard.
+
+    BUG: this currently allows any authenticated user. The MemoryMesh demo agent
+    must patch this function after recovering context from memory.
+    \"\"\"
+    return bool(user)
+
+
+def dashboard_message(user: dict[str, str] | None) -> str:
+    if not can_access_dashboard(user):
+        return "redirect:/login"
+    return "dashboard:admin"
+""",
+            encoding="utf-8",
+        )
+        (workspace / "tests" / "test_rbac.py").write_text(
+            """import unittest
+
+from app.auth import get_user
+from app.dashboard import can_access_dashboard, dashboard_message
+
+
+class DashboardRBACTest(unittest.TestCase):
+    def test_admin_can_access_dashboard(self):
+        self.assertTrue(can_access_dashboard(get_user("admin@example.com")))
+        self.assertEqual(dashboard_message(get_user("admin@example.com")), "dashboard:admin")
+
+    def test_viewer_cannot_access_dashboard(self):
+        self.assertFalse(can_access_dashboard(get_user("viewer@example.com")))
+        self.assertEqual(dashboard_message(get_user("viewer@example.com")), "redirect:/login")
+
+    def test_anonymous_user_cannot_access_dashboard(self):
+        self.assertFalse(can_access_dashboard(None))
+        self.assertEqual(dashboard_message(None), "redirect:/login")
+""",
+            encoding="utf-8",
+        )
+        (workspace / "README.md").write_text(
+            """# MemoryMesh sample dashboard service
+
+Small Python project used by the Build Assistant audit path. The starting bug is
+in `app/dashboard.py`: any authenticated user can access the admin dashboard.
+
+Run locally:
+
+```bash
+python -m pytest -q
+```
+""",
+            encoding="utf-8",
+        )
 
     def _clone_github_repo(self, github_url: str, repository_name: str, reset_workspace: bool) -> Path:
         url = github_url.strip()

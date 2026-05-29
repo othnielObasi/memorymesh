@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowRight, Lock, Cloud, Zap, CheckCircle2, Shield, Eye, Trash2, RefreshCw, GitBranch } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowRight, Lock, Cloud, Zap, CheckCircle2, Shield, Eye, Trash2, RefreshCw, GitBranch, AlertCircle, Server } from 'lucide-react';
 import type { PageType } from '../LandingPage';
 
 interface Props {
@@ -60,6 +60,7 @@ const OPS = [
 
 const LOCATIONS = [
   {
+    backend: 'local_cognee',
     icon: Lock,
     color: '#34d399',
     label: 'Private',
@@ -71,6 +72,7 @@ const LOCATIONS = [
     best: 'Teams with strict data residency requirements or handling sensitive IP.',
   },
   {
+    backend: 'cognee_cloud',
     icon: Cloud,
     color: '#818cf8',
     label: 'Recommended',
@@ -82,6 +84,7 @@ const LOCATIONS = [
     best: 'Individuals and teams who want reliability without infrastructure management.',
   },
   {
+    backend: 'offline_mirror',
     icon: Zap,
     color: '#22d3ee',
     label: 'Try it now',
@@ -94,8 +97,83 @@ const LOCATIONS = [
   },
 ];
 
+type MemoryStatus = {
+  backend: string;
+  provider: string;
+  ready: boolean;
+  mode: string;
+  service_url_configured: boolean;
+  api_key_configured: boolean;
+  fallback_allowed: boolean;
+  import_error?: string | null;
+  notes?: string[];
+};
+
+type MemoryEvent = {
+  id: string;
+  operation: string;
+  provider: string;
+  backend: string;
+  dataset: string;
+  session_id?: string | null;
+  status: string;
+  fallback_used: boolean;
+  error?: string | null;
+  text_preview: string;
+  created_at?: string;
+};
+
+const resolveApiBase = () => {
+  if (import.meta.env.VITE_MEMORYMESH_API_BASE_URL) {
+    return import.meta.env.VITE_MEMORYMESH_API_BASE_URL;
+  }
+  if (window.location.protocol === 'file:') {
+    return 'http://127.0.0.1:8000';
+  }
+  if (['3000', '5173', '5174'].includes(window.location.port)) {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+  return window.location.origin;
+};
+
+const API_BASE =
+  resolveApiBase();
+
 export function MemoryPage({ onNavigate, onEnterWorkspace }: Props) {
   const [activeOp, setActiveOp] = useState(0);
+  const [statuses, setStatuses] = useState<Record<string, MemoryStatus>>({});
+  const [events, setEvents] = useState<MemoryEvent[]>([]);
+  const [loadingConsole, setLoadingConsole] = useState(false);
+  const [consoleError, setConsoleError] = useState<string | null>(null);
+
+  const refreshMemoryConsole = async () => {
+    setLoadingConsole(true);
+    setConsoleError(null);
+    try {
+      const [local, cloud, demo, eventResponse] = await Promise.all([
+        fetch(`${API_BASE}/api/memory/status?backend=local_cognee&probe=true`).then(r => r.json()),
+        fetch(`${API_BASE}/api/memory/status?backend=cognee_cloud&probe=true`).then(r => r.json()),
+        fetch(`${API_BASE}/api/memory/status?backend=offline_mirror&probe=true`).then(r => r.json()),
+        fetch(`${API_BASE}/api/memory/events?backend=local_cognee&limit=8`).then(r => r.json()),
+      ]);
+      setStatuses({ local_cognee: local, cognee_cloud: cloud, offline_mirror: demo });
+      setEvents(eventResponse.events || []);
+    } catch (error) {
+      setConsoleError(error instanceof Error ? error.message : 'Could not reach the MemoryMesh API.');
+    } finally {
+      setLoadingConsole(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshMemoryConsole();
+  }, []);
+
+  const statusLabel = (status?: MemoryStatus) => {
+    if (!status) return { text: 'checking', cls: 'text-muted-foreground border-border bg-muted/20' };
+    if (status.ready) return { text: 'available', cls: 'text-green-400 border-green-400/25 bg-green-400/10' };
+    return { text: 'needs setup', cls: 'text-amber-300 border-amber-300/25 bg-amber-300/10' };
+  };
 
   return (
     <div className="pt-16">
@@ -255,6 +333,118 @@ export function MemoryPage({ onNavigate, onEnterWorkspace }: Props) {
                   </>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Local/self-hosted console */}
+      <section className="px-6 py-20 border-t border-border">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5 mb-8">
+            <div>
+              <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Local console</p>
+              <h2 className="font-display text-4xl text-foreground mb-3">Self-hosted memory, visible.</h2>
+              <p className="text-muted-foreground max-w-2xl leading-relaxed">
+                MemoryMesh turns local Cognee into a work-memory console: status, fallback state, recent operations, and recovery proof.
+              </p>
+            </div>
+            <button
+              onClick={refreshMemoryConsole}
+              className="inline-flex items-center gap-2 text-sm text-foreground border border-border px-4 py-2.5 rounded-lg hover:bg-muted/30 transition-all"
+            >
+              <RefreshCw className={`w-4 h-4 ${loadingConsole ? 'animate-spin' : ''}`} />
+              Refresh status
+            </button>
+          </div>
+
+          {consoleError && (
+            <div className="mb-5 rounded-xl border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm text-red-200 flex items-start gap-3">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{consoleError}</span>
+            </div>
+          )}
+
+          <div className="grid lg:grid-cols-[1fr_1.3fr] gap-5">
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl border border-green-400/25 bg-green-400/10 flex items-center justify-center">
+                  <Server className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Runtime readiness</h3>
+                  <p className="text-xs text-muted-foreground">Live probe from the MemoryMesh API</p>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                {LOCATIONS.map((loc) => {
+                  const status = statuses[loc.backend];
+                  const label = statusLabel(status);
+                  return (
+                    <div key={loc.backend} className="rounded-xl border border-border bg-muted/20 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{loc.title}</p>
+                          <p className="text-xs text-muted-foreground">{status?.provider || loc.sub}</p>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full border ${label.cls}`}>{label.text}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-3 leading-relaxed">
+                        {status?.notes?.[0] || 'Waiting for backend status.'}
+                      </p>
+                      {status?.import_error && (
+                        <p className="text-xs text-amber-200 mt-2 leading-relaxed">{status.import_error}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-border bg-card p-6">
+              <div className="flex items-center justify-between gap-4 mb-5">
+                <div>
+                  <h3 className="font-semibold text-foreground">Recent local memory activity</h3>
+                  <p className="text-xs text-muted-foreground">Operations recorded from local_cognee runs</p>
+                </div>
+                <span className="text-xs text-muted-foreground font-mono-ui">{events.length} events</span>
+              </div>
+
+              <div className="space-y-2.5 max-h-[430px] overflow-auto hide-scrollbar">
+                {events.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-5">
+                    <p className="text-sm text-foreground mb-1">No local memory events yet.</p>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      Run an agent with Private local memory selected. The console will show remember, recall, improve, and forget events here.
+                    </p>
+                  </div>
+                ) : (
+                  events.map((event) => (
+                    <div key={event.id} className="rounded-xl border border-border bg-muted/20 p-4">
+                      <div className="flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono-ui text-primary">{event.operation}</span>
+                          <span className="text-xs text-muted-foreground">{event.status}</span>
+                        </div>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                          event.fallback_used
+                            ? 'text-amber-300 border-amber-300/25 bg-amber-300/10'
+                            : 'text-green-400 border-green-400/25 bg-green-400/10'
+                        }`}>
+                          {event.fallback_used ? 'fallback' : 'local Cognee'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">{event.text_preview}</p>
+                      <div className="flex flex-wrap gap-2 mt-3 text-[11px] text-muted-foreground font-mono-ui">
+                        <span>{event.dataset}</span>
+                        {event.session_id && <span>session:{event.session_id}</span>}
+                        {event.error && <span className="text-amber-200">error:{event.error}</span>}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
