@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { toast, Toaster } from 'sonner';
+import { Cloud, LockKeyhole, MonitorPlay, X } from 'lucide-react';
 import { LandingPage } from './LandingPage';
 import { Topbar } from './components/Topbar';
 import { WorkspacePanel } from './components/WorkspacePanel';
@@ -352,82 +353,147 @@ function AuthPanel({
   const [password, setPassword] = useState('');
   const [organisationName, setOrganisationName] = useState('');
   const isSignup = mode === 'signup';
+  const accessNotes = [
+    {
+      icon: Cloud,
+      title: 'Cloud memory',
+      body: 'Requires sign in so runs are saved to your organisation workspace.',
+    },
+    {
+      icon: LockKeyhole,
+      title: 'Private local memory',
+      body: 'Use the self-hosted console. No cloud account is required for local mode.',
+    },
+    {
+      icon: MonitorPlay,
+      title: 'Demo memory',
+      body: 'Works without sign in and stays clearly marked as temporary preview memory.',
+    },
+  ];
 
   return (
-    <section className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+    <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-2xl shadow-black/30">
+      <div className="flex items-center justify-between border-b border-border px-6 py-5">
         <div>
           <p className="text-xs font-mono-ui uppercase tracking-widest text-primary">Cloud account</p>
-          <h2 className="mt-1 text-xl font-semibold text-foreground">
+          <h2 className="mt-1 text-2xl font-semibold tracking-tight text-foreground">
             {isSignup ? 'Create your MemoryMesh workspace' : 'Sign in to Cloud Memory'}
           </h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-            Cloud runs are saved to your organisation workspace, protected by a signed session, and retried with idempotency keys.
-          </p>
         </div>
-        <button onClick={onCancel} className="w-fit rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
-          Dismiss
+        <button
+          onClick={onCancel}
+          aria-label="Dismiss"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:border-foreground/20 hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
         </button>
       </div>
 
-      <form
-        className="mt-5 grid gap-3 md:grid-cols-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          onSubmit({ name, email, password, organisationName });
-        }}
-      >
-        {isSignup && (
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder="Your name"
-            className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-            required
-          />
-        )}
-        <input
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="Email"
-          type="email"
-          className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-          required
-        />
-        <input
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="Password"
-          type="password"
-          minLength={isSignup ? 8 : 1}
-          className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-          required
-        />
-        {isSignup && (
-          <input
-            value={organisationName}
-            onChange={(event) => setOrganisationName(event.target.value)}
-            placeholder="Organisation"
-            className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
-          />
-        )}
-        <button
-          type="submit"
-          disabled={busy}
-          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-60"
-        >
-          {busy ? 'Working...' : isSignup ? 'Create account' : 'Sign in'}
-        </button>
-      </form>
+      <div className="grid gap-0 lg:grid-cols-[0.9fr_1.1fr]">
+        <aside className="border-b border-border bg-muted/20 p-6 lg:border-b-0 lg:border-r">
+          <p className="text-sm leading-relaxed text-muted-foreground">
+            Cloud memory is saved to a signed organisation workspace. Demo memory remains open, and private local memory runs from the self-hosted console.
+          </p>
+          <div className="mt-6 space-y-3">
+            {accessNotes.map((item) => (
+              <div key={item.title} className="flex gap-3 rounded-xl border border-border bg-background/40 p-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10">
+                  <item.icon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">{item.title}</p>
+                  <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{item.body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </aside>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
-        <button
-          onClick={() => onModeChange(isSignup ? 'signin' : 'signup')}
-          className="text-primary hover:underline"
+        <form
+          className="space-y-4 p-6"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onSubmit({ name, email, password, organisationName });
+          }}
         >
-          {isSignup ? 'Already have an account? Sign in' : 'New here? Create account'}
-        </button>
-        {error && <span className="text-red-300">{error}</span>}
+          <p className="text-sm text-muted-foreground">
+            {isSignup
+              ? 'Create a cloud workspace for managed Cognee Cloud memory.'
+              : 'Use your MemoryMesh cloud workspace credentials.'}
+          </p>
+
+          {isSignup && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
+              <input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="Your name"
+                className="w-full rounded-xl border border-border bg-input px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+                required
+              />
+            </label>
+          )}
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Email</span>
+            <input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="Email"
+              type="email"
+              className="w-full rounded-xl border border-border bg-input px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Password</span>
+            <input
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Password"
+              type="password"
+              minLength={isSignup ? 8 : 1}
+              className="w-full rounded-xl border border-border bg-input px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              required
+            />
+          </label>
+
+          {isSignup && (
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">Organisation</span>
+              <input
+                value={organisationName}
+                onChange={(event) => setOrganisationName(event.target.value)}
+                placeholder="Organisation"
+                className="w-full rounded-xl border border-border bg-input px-3 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              />
+            </label>
+          )}
+
+          {error && (
+            <div className="rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:bg-primary/90 disabled:opacity-60"
+          >
+            {busy ? 'Working...' : isSignup ? 'Create account' : 'Sign in'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => onModeChange(isSignup ? 'signin' : 'signup')}
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/30"
+          >
+            {isSignup ? 'Already have an account? Sign in' : 'New here? Create account'}
+          </button>
+        </form>
       </div>
     </section>
   );
@@ -1056,8 +1122,8 @@ export const verifyPassword = (pw: string, hash: string) =>
           }}
         />
         {authMode && (
-          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-20 backdrop-blur-sm">
-            <div className="w-full max-w-lg">
+          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-16 backdrop-blur-sm">
+            <div className="w-full max-w-4xl">
               <AuthPanel
                 mode={authMode}
                 onModeChange={setAuthMode}
