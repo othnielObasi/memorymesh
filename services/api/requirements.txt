@@ -1,6 +1,6 @@
-fastapi==0.115.6
+fastapi>=0.116.2,<1
 uvicorn[standard]==0.34.0
-pydantic==2.10.4
+pydantic>=2.10.5,<3
 pydantic-settings==2.7.1
 asyncpg==0.30.0
 python-dotenv==1.0.1
@@ -8,8 +8,11 @@ openai>=2.20.0,<3
 numpy==2.2.1
 orjson==3.10.13
 httpx==0.28.1
-python-multipart==0.0.22
+python-multipart>=0.0.22,<1
+sqlalchemy>=2.0.39,<3
+starlette>=0.48,<1
+cognee==1.1.2
 
-# Cognee is optional for self-hosted/local mode because the current public package
-# does not resolve on Vercel's Python 3.12 runtime. Install requirements.local-cognee.txt
-# for private local deployments that run the Cognee SDK in-process.
+# Cognee is included so local_cognee can run through the open-source SDK when a
+# separate COGNEE_LOCAL_SERVICE_URL is not configured. app.services.cognee_memory
+# applies a small Starlette compatibility patch before importing Cognee.
