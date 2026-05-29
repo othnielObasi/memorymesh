@@ -2,7 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app.api import cognee_memory_events
-from app.services.cognee_memory import CogneeMemoryService
+from app.services.cognee_memory import CogneeMemoryService, CogneeRestClient
 
 
 class FakeStore:
@@ -27,7 +27,10 @@ def settings(**kwargs):
         cognee_enabled=False,
         cognee_service_url=None,
         cognee_api_key=None,
+        cognee_local_service_url=None,
+        cognee_local_api_key=None,
         environment="development",
+        llm_timeout_seconds=45,
         cognee_default_dataset="memorymesh-agent-work-memory",
         cognee_allow_offline_fallback=True,
     )
@@ -50,6 +53,88 @@ def test_auto_backend_prefers_cloud_in_production_when_api_key_exists_but_url_is
     )
 
     assert svc.backend == "cognee_cloud"
+
+
+def test_local_cognee_service_url_uses_http_client_without_api_key():
+    async def run():
+        store = FakeStore()
+        svc = CogneeMemoryService(
+            store,
+            settings(
+                memorymesh_memory_backend="local_cognee",
+                cognee_enabled=True,
+                cognee_local_service_url="http://local-cognee:8000",
+                cognee_local_api_key=None,
+            ),
+        )
+        status = await svc.status(probe=False)
+        client = await svc._get_client()
+        return status, client
+
+    status, client = asyncio.run(run())
+
+    assert status.ready is True
+    assert status.service_url_configured is True
+    assert status.api_key_configured is False
+    assert isinstance(client, CogneeRestClient)
+    assert "X-Api-Key" not in client.headers
+    assert client.base_url == "http://local-cognee:8000"
+
+
+def test_local_cognee_probe_fails_when_service_probe_fails():
+    class FailingProbeClient:
+        async def auth_probe(self):
+            raise RuntimeError("local service unavailable")
+
+    async def run():
+        store = FakeStore()
+        svc = CogneeMemoryService(
+            store,
+            settings(
+                memorymesh_memory_backend="local_cognee",
+                cognee_enabled=True,
+                cognee_local_service_url="http://local-cognee:8000",
+            ),
+        )
+        svc._client = FailingProbeClient()
+        return await svc.status(probe=True)
+
+    status = asyncio.run(run())
+
+    assert status.ready is False
+    assert status.import_error == "local service unavailable"
+
+
+def test_cloud_improve_404_is_reported_as_improvement_note_not_native_success():
+    class FakeCloudClient:
+        async def improve(self, *, dataset, session_ids=None):
+            return {
+                "memorymesh_operation": "remember_as_improvement",
+                "reason": "remote_improve_endpoint_not_available",
+                "native_operation": "remember",
+                "result": {"stored": True, "dataset": dataset, "session_ids": session_ids},
+            }
+
+    async def run():
+        store = FakeStore()
+        svc = CogneeMemoryService(
+            store,
+            settings(
+                memorymesh_memory_backend="cognee_cloud",
+                cognee_enabled=True,
+                cognee_service_url="https://tenant.cognee.ai",
+                cognee_api_key="key",
+            ),
+        )
+        svc._client = FakeCloudClient()
+        return await svc.improve(feedback="Keep this correction", dataset="demo", session_id="s1")
+
+    result = asyncio.run(run())
+
+    assert result.status == "improvement_note_stored"
+    assert result.fallback_used is False
+    assert result.backend_ready is True
+    assert result.results[0]["reason"] == "remote_improve_endpoint_not_available"
 
 
 def test_offline_mirror_lifecycle_recall_and_forget():

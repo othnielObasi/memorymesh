@@ -2,7 +2,7 @@
 
 This is the **Best Use of Cognee Cloud** prize path.
 
-MemoryMesh calls `cognee.serve()` and then uses the same lifecycle methods against Cognee Cloud.
+MemoryMesh uses the Cognee Cloud tenant URL and API key to run the same memory lifecycle against managed Cognee Cloud. The API reports `fallback_used` and per-operation status so Cloud gaps are visible instead of hidden.
 
 ## Configure
 
@@ -38,5 +38,6 @@ Then:
 - Backend mode: `cognee_cloud`
 - Cloud status: service URL and API key configured
 - Same agent workflow as open-source mode
-- Same lifecycle trace: `remember → recall → improve → forget`
+- Same lifecycle trace: `remember -> recall -> improve -> forget`
+- If the tenant does not expose native `improve`, MemoryMesh stores an improvement note and reports `improvement_note_stored` rather than pretending native improve succeeded
 - No product/UI change between local and cloud modes

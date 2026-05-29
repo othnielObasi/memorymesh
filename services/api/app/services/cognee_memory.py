@@ -48,17 +48,17 @@ class CogneeBackendStatus:
 class CogneeRestClient:
     """Small Cognee Cloud HTTP client used when the optional SDK is unavailable."""
 
-    def __init__(self, *, base_url: str, api_key: str, timeout: float = 45.0):
+    def __init__(self, *, base_url: str, api_key: str | None = None, timeout: float = 45.0):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
 
     @property
     def headers(self) -> dict[str, str]:
-        return {
-            "X-Api-Key": self.api_key,
-            "Accept": "application/json",
-        }
+        headers = {"Accept": "application/json"}
+        if self.api_key:
+            headers["X-Api-Key"] = self.api_key
+        return headers
 
     async def health(self) -> Any:
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -132,11 +132,17 @@ class CogneeRestClient:
                     "MemoryMesh improvement note: Cognee Cloud tenant does not expose /api/v1/improve yet. "
                     f"Persist this improvement in graph memory for dataset={dataset}."
                 )
-                return await self.remember(
+                remembered = await self.remember(
                     fallback_text,
                     dataset_name=dataset,
                     session_id=session_ids[0] if session_ids else None,
                 )
+                return {
+                    "memorymesh_operation": "remember_as_improvement",
+                    "reason": "remote_improve_endpoint_not_available",
+                    "native_operation": "remember",
+                    "result": remembered,
+                }
             response.raise_for_status()
             return self._json_or_text(response)
 
@@ -235,11 +241,21 @@ class CogneeMemoryService:
         ready = self.backend == "offline_mirror"
         notes: list[str] = []
         if self.backend == "local_cognee":
-            notes.append("Uses the open-source Cognee SDK locally/self-hosted. No Cognee Cloud key is required.")
+            notes.append("Uses open-source/self-hosted Cognee. Production deployments should set COGNEE_LOCAL_SERVICE_URL to a private Cognee service.")
+            if not self.settings.cognee_local_service_url:
+                notes.append("No COGNEE_LOCAL_SERVICE_URL configured; MemoryMesh will try the in-process Cognee SDK if installed and dependency-compatible.")
             if probe:
-                ready = await self._get_client() is not None
+                client = await self._get_client()
+                ready = client is not None
+                auth_probe = getattr(client, "auth_probe", None)
+                if auth_probe is not None:
+                    try:
+                        await auth_probe()
+                    except Exception as exc:
+                        ready = False
+                        self._import_error = str(exc)
             else:
-                ready = self._client is not None or self.settings.cognee_enabled or self.backend_override == "local_cognee"
+                ready = self._client is not None or bool(self.settings.cognee_local_service_url)
         elif self.backend == "cognee_cloud":
             notes.append("Uses Cognee Cloud through the SDK when available, otherwise the Cognee HTTP API.")
             if not (self.settings.cognee_service_url and self.settings.cognee_api_key):
@@ -264,8 +280,8 @@ class CogneeMemoryService:
             provider=self.provider,
             ready=ready,
             mode="cloud" if self.backend == "cognee_cloud" else ("open_source" if self.backend == "local_cognee" else "fallback"),
-            service_url_configured=bool(self.settings.cognee_service_url),
-            api_key_configured=bool(self.settings.cognee_api_key),
+            service_url_configured=bool(self._service_url_for_backend()),
+            api_key_configured=bool(self._api_key_for_backend()),
             fallback_allowed=self.fallback_allowed,
             import_error=self._import_error,
             notes=notes,
@@ -283,12 +299,13 @@ class CogneeMemoryService:
                 fallback_used = True
                 status = "stored_in_offline_mirror" if self.backend == "offline_mirror" else "stored_with_offline_mirror"
             else:
-                await self._call_with_supported_kwargs(
+                raw = await self._call_with_supported_kwargs(
                     client.remember,
                     text,
                     dataset_name=dataset,
                     session_id=session_id,
                 )
+                results = self._normalise_results(raw)
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
                 raise
@@ -344,11 +361,14 @@ class CogneeMemoryService:
                 improve_fn = getattr(client, "improve", None)
                 if improve_fn is None:
                     raise RuntimeError("Configured Cognee client does not expose improve().")
-                await self._call_with_supported_kwargs(
+                raw = await self._call_with_supported_kwargs(
                     improve_fn,
                     dataset=dataset,
                     session_ids=[session_id] if session_id else None,
                 )
+                results = self._normalise_results(raw)
+                if isinstance(raw, dict) and raw.get("memorymesh_operation") == "remember_as_improvement":
+                    status = "improvement_note_stored"
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
                 raise
@@ -363,6 +383,7 @@ class CogneeMemoryService:
         operation_id = new_id("cognee_forget")
         metadata = metadata or {}
         fallback_used, error, status = False, None, "forgotten"
+        results: list[Any] = []
         client = None
         try:
             client = await self._get_client()
@@ -370,7 +391,7 @@ class CogneeMemoryService:
                 fallback_used = True
                 status = "forgotten_from_offline_mirror" if self.backend == "offline_mirror" else "forgotten_with_offline_mirror"
             else:
-                await self._call_with_supported_kwargs(
+                raw = await self._call_with_supported_kwargs(
                     client.forget,
                     dataset=dataset,
                     dataset_name=dataset,
@@ -378,6 +399,7 @@ class CogneeMemoryService:
                     session_id=session_id,
                     everything=everything,
                 )
+                results = self._normalise_results(raw)
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
                 raise
@@ -386,13 +408,22 @@ class CogneeMemoryService:
             error = str(exc)
 
         await self._mark_local_memory_forgotten(dataset=dataset, session_id=session_id, everything=everything)
-        await self._persist_event(operation_id=operation_id, operation="forget", dataset=dataset, session_id=session_id, text="forget everything" if everything else f"forget dataset={dataset}", metadata=metadata, results=[], status=status, fallback_used=fallback_used, error=error)
-        return self._result(operation_id, "forget", dataset, session_id, status, "Memory deleted or pruned.", [], fallback_used, error, client is not None and not fallback_used)
+        await self._persist_event(operation_id=operation_id, operation="forget", dataset=dataset, session_id=session_id, text="forget everything" if everything else f"forget dataset={dataset}", metadata=metadata, results=results, status=status, fallback_used=fallback_used, error=error)
+        return self._result(operation_id, "forget", dataset, session_id, status, "Memory deleted or pruned.", results, fallback_used, error, client is not None and not fallback_used)
 
     async def _get_client(self) -> Any | None:
         if self.backend == "offline_mirror":
             return None
         if self._client is not None:
+            return self._client
+        if self.backend == "local_cognee" and self.settings.cognee_local_service_url:
+            self._client = CogneeRestClient(
+                base_url=str(self.settings.cognee_local_service_url),
+                api_key=self.settings.cognee_local_api_key,
+                timeout=float(getattr(self.settings, "llm_timeout_seconds", 45)),
+            )
+            self._connected = True
+            self._import_error = None
             return self._client
         if self.backend == "cognee_cloud" and not (self.settings.cognee_service_url and self.settings.cognee_api_key):
             self._import_error = "Cognee Cloud mode requires COGNEE_SERVICE_URL and COGNEE_API_KEY."
@@ -407,13 +438,50 @@ class CogneeMemoryService:
             self._import_error = None
             return self._client
         try:
+            self._patch_cognee_runtime_compatibility()
             import cognee  # type: ignore
         except Exception as exc:  # pragma: no cover - optional dependency
-            self._import_error = str(exc)
+            self._import_error = self._local_cognee_error_message(exc)
             return None
 
         self._client = cognee
         return self._client
+
+    def _api_key_for_backend(self) -> str | None:
+        if self.backend == "local_cognee":
+            return self.settings.cognee_local_api_key
+        if self.backend == "cognee_cloud":
+            return self.settings.cognee_api_key
+        return None
+
+    def _service_url_for_backend(self) -> str | None:
+        if self.backend == "local_cognee":
+            return self.settings.cognee_local_service_url
+        if self.backend == "cognee_cloud":
+            return self.settings.cognee_service_url
+        return None
+
+    def _patch_cognee_runtime_compatibility(self) -> None:
+        try:
+            import starlette.status as starlette_status
+        except Exception:
+            return
+        if not hasattr(starlette_status, "HTTP_422_UNPROCESSABLE_CONTENT") and hasattr(starlette_status, "HTTP_422_UNPROCESSABLE_ENTITY"):
+            starlette_status.HTTP_422_UNPROCESSABLE_CONTENT = starlette_status.HTTP_422_UNPROCESSABLE_ENTITY
+
+    def _local_cognee_error_message(self, exc: Exception) -> str:
+        message = str(exc)
+        if "openai.types.responses" in message:
+            return (
+                f"{message}. Local in-process Cognee requires openai>=2.20 via requirements.local-cognee.txt, "
+                "or configure COGNEE_LOCAL_SERVICE_URL to a self-hosted Cognee service."
+            )
+        if "HTTP_422_UNPROCESSABLE_CONTENT" in message:
+            return (
+                f"{message}. Local in-process Cognee requires Starlette/FastAPI versions compatible with Cognee, "
+                "or configure COGNEE_LOCAL_SERVICE_URL to a self-hosted Cognee service."
+            )
+        return message
 
     async def _call_with_supported_kwargs(self, fn: Any, *args: Any, **kwargs: Any) -> Any:
         cleaned = {key: value for key, value in kwargs.items() if value is not None}

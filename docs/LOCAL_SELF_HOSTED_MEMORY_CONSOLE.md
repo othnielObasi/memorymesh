@@ -30,7 +30,7 @@ The local console is primarily for:
 
 | UI Mode | Backend | Purpose | Current Expected Behavior |
 |---|---|---|---|
-| Private local memory | `local_cognee` | Open-source/self-hosted Cognee on user infrastructure. | Calls local Cognee SDK when available; records MemoryMesh audit events. |
+| Private local memory | `local_cognee` | Open-source/self-hosted Cognee on user infrastructure. | Calls a private Cognee HTTP service when `COGNEE_LOCAL_SERVICE_URL` is configured; otherwise tries the optional in-process SDK and records MemoryMesh audit events. |
 | Cloud memory | `cognee_cloud` | Managed Cognee Cloud. | Requires `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; otherwise marked not ready. |
 | Demo memory | `offline_mirror` | Temporary preview/fallback. | Stores lifecycle events in MemoryMesh storage only. |
 
@@ -51,6 +51,7 @@ Show:
 
 - selected backend: `local_cognee`;
 - Cognee provider: open-source Cognee;
+- local service URL configured or in-process SDK mode;
 - readiness probe result;
 - Cognee import error, if any;
 - fallback state: whether MemoryMesh is using offline mirror fallback;
@@ -187,6 +188,7 @@ The events endpoint should return recent `cognee_memory_events` records with eno
 ## Acceptance Criteria
 
 - Local mode never claims Cognee is connected unless `GET /api/memory/status?backend=local_cognee&probe=true` passes.
+- Production local mode should use `COGNEE_LOCAL_SERVICE_URL`; in-process SDK mode is optional and dependency-sensitive.
 - Cloud mode clearly says “needs setup” until `COGNEE_SERVICE_URL` and `COGNEE_API_KEY` are configured.
 - Demo mode is always labelled temporary/fallback.
 - The UI shows whether fallback was used.

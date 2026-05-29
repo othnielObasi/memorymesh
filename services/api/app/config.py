@@ -65,6 +65,8 @@ class Settings(BaseSettings):
     cognee_enabled: bool = Field(default=False, alias='COGNEE_ENABLED')
     cognee_service_url: str | None = Field(default=None, alias='COGNEE_SERVICE_URL')
     cognee_api_key: str | None = Field(default=None, alias='COGNEE_API_KEY')
+    cognee_local_service_url: str | None = Field(default=None, alias='COGNEE_LOCAL_SERVICE_URL')
+    cognee_local_api_key: str | None = Field(default=None, alias='COGNEE_LOCAL_API_KEY')
     cognee_default_dataset: str = Field(default='memorymesh-agent-work-memory', alias='COGNEE_DEFAULT_DATASET')
     cognee_allow_offline_fallback: bool = Field(default=True, alias='COGNEE_ALLOW_OFFLINE_FALLBACK')
     memorymesh_local_project_roots: str = Field(default='', alias='MEMORYMESH_LOCAL_PROJECT_ROOTS')

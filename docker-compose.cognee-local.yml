@@ -1,9 +1,13 @@
 # Optional override for the Best Use of Open Source prize path.
-# It forces MemoryMesh to use the local/open-source Cognee SDK path.
+# It points the API container at a self-hosted Cognee service running on the host.
+# Override COGNEE_LOCAL_SERVICE_URL=http://cognee:8000 if you add Cognee as a
+# service on the same Docker network.
 services:
   api:
     environment:
       MEMORYMESH_MEMORY_BACKEND: local_cognee
       COGNEE_ENABLED: "true"
+      COGNEE_LOCAL_SERVICE_URL: ${COGNEE_LOCAL_SERVICE_URL:-http://host.docker.internal:8001}
+      COGNEE_LOCAL_API_KEY: ${COGNEE_LOCAL_API_KEY:-}
       COGNEE_ALLOW_OFFLINE_FALLBACK: "true"
       COGNEE_DEFAULT_DATASET: memorymesh-agent-work-memory

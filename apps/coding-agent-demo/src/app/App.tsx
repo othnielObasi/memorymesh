@@ -63,7 +63,7 @@ const resolveApiBase = () => {
   if (window.location.protocol === 'file:') {
     return 'http://127.0.0.1:8000';
   }
-  if (['3000', '5173', '5174'].includes(window.location.port)) {
+  if (['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port !== '8000') {
     return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
   return window.location.origin;
@@ -321,7 +321,7 @@ function memoryActivitiesFromReceipt(receipt: any): MemoryActivity[] {
     const backend = op.backend || 'local_cognee';
     const status = op.status || 'recorded';
     const dataset = op.dataset ? ` dataset=${op.dataset}` : '';
-    const nativeState = op.fallback_used ? 'fallback used' : 'native local Cognee';
+    const nativeState = op.fallback_used ? 'fallback used' : `native ${backend}`;
     const content = op.content ? ` - ${String(op.content).replace(/\s+/g, ' ').slice(0, 120)}` : '';
     return {
       id: op.operation_id || `local-${Date.now()}-${index}`,

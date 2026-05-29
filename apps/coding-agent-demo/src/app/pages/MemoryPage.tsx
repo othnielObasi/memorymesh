@@ -130,7 +130,7 @@ const resolveApiBase = () => {
   if (window.location.protocol === 'file:') {
     return 'http://127.0.0.1:8000';
   }
-  if (['3000', '5173', '5174'].includes(window.location.port)) {
+  if (['localhost', '127.0.0.1'].includes(window.location.hostname) && window.location.port !== '8000') {
     return `${window.location.protocol}//${window.location.hostname}:8000`;
   }
   return window.location.origin;

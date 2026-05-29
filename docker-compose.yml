@@ -32,6 +32,8 @@ services:
       COGNEE_ENABLED: ${COGNEE_ENABLED:-false}
       COGNEE_SERVICE_URL: ${COGNEE_SERVICE_URL:-}
       COGNEE_API_KEY: ${COGNEE_API_KEY:-}
+      COGNEE_LOCAL_SERVICE_URL: ${COGNEE_LOCAL_SERVICE_URL:-}
+      COGNEE_LOCAL_API_KEY: ${COGNEE_LOCAL_API_KEY:-}
       COGNEE_DEFAULT_DATASET: ${COGNEE_DEFAULT_DATASET:-memorymesh-agent-work-memory}
       COGNEE_ALLOW_OFFLINE_FALLBACK: ${COGNEE_ALLOW_OFFLINE_FALLBACK:-true}
       TRUEFOUNDRY_BASE_URL: ${TRUEFOUNDRY_BASE_URL:-}
@@ -47,6 +49,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   recovery-worker:
     build: ./services/api

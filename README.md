@@ -10,8 +10,8 @@ The project is designed to be strong on **both Cognee hackathon grand-prize trac
 
 | Prize path | MemoryMesh implementation |
 |---|---|
-| **Best Use of Open Source** | `MEMORYMESH_MEMORY_BACKEND=local_cognee` runs against local/self-hosted open-source Cognee through the Python SDK. |
-| **Best Use of Cognee Cloud** | `MEMORYMESH_MEMORY_BACKEND=cognee_cloud` calls `cognee.serve()` and routes the same lifecycle operations to Cognee Cloud. |
+| **Best Use of Open Source** | `MEMORYMESH_MEMORY_BACKEND=local_cognee` runs against a local/self-hosted open-source Cognee service, with the in-process SDK kept as an optional developer path. |
+| **Best Use of Cognee Cloud** | `MEMORYMESH_MEMORY_BACKEND=cognee_cloud` routes the same lifecycle operations to the Cognee Cloud HTTP API. |
 
 The same real agent workflow runs on both backends.
 
@@ -119,8 +119,8 @@ MEMORYMESH_MEMORY_BACKEND=local_cognee | cognee_cloud | offline_mirror | auto
 
 | Mode | Purpose |
 |---|---|
-| `local_cognee` | Open-source/self-hosted Cognee prize path. |
-| `cognee_cloud` | Cognee Cloud prize path. |
+| `local_cognee` | Open-source/self-hosted Cognee prize path. Prefer `COGNEE_LOCAL_SERVICE_URL` for production local installs. |
+| `cognee_cloud` | Cognee Cloud prize path through `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`. |
 | `offline_mirror` | No-key local fallback for tests/previews only. |
 | `auto` | Uses Cognee Cloud if URL/key are present, local Cognee if `COGNEE_ENABLED=true`, otherwise offline mirror. |
 
@@ -132,8 +132,8 @@ Secrets are backend-only. Do not place Cognee or LLM keys in `apps/coding-agent-
 
 | Capability | Environment variables | Needed now? |
 |---|---|---|
-| Local/self-hosted Cognee memory | `MEMORYMESH_MEMORY_BACKEND=local_cognee`, `COGNEE_ENABLED=true` | Yes for local Cognee mode |
-| Cognee Cloud memory | `MEMORYMESH_MEMORY_BACKEND=cognee_cloud`, `COGNEE_SERVICE_URL`, `COGNEE_API_KEY` | Later, when Cognee Cloud details are available |
+| Local/self-hosted Cognee memory | `MEMORYMESH_MEMORY_BACKEND=local_cognee`, `COGNEE_ENABLED=true`, `COGNEE_LOCAL_SERVICE_URL` | Yes for production local Cognee mode |
+| Cognee Cloud memory | `MEMORYMESH_MEMORY_BACKEND=cognee_cloud`, `COGNEE_SERVICE_URL`, `COGNEE_API_KEY` | Yes for managed Cognee Cloud mode |
 | OpenAI LLM route | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_CHAT_MODEL` | Needed for live OpenAI reasoning |
 | AIMLAPI fallback route | `AIMLAPI_API_KEY`, `AIMLAPI_BASE_URL`, `AIMLAPI_MODEL` | Needed for OpenAI-compatible fallback |
 | LLM routing | `LLM_PRIMARY_PROVIDER=openai`, `LLM_FALLBACK_PROVIDER=aimlapi` | Recommended |
@@ -145,6 +145,11 @@ For development without live keys, MemoryMesh keeps deterministic local fallback
 ```bash
 npm install
 cp .env.oss.example .env
+# Set COGNEE_LOCAL_SERVICE_URL to your self-hosted Cognee service.
+# Docker Compose can reach Cognee on the host at http://host.docker.internal:8001.
+# Use http://127.0.0.1:8001 only when running the API directly outside Docker.
+# Use http://cognee:8000 if Cognee is another service on the same Docker network.
+# If blank, MemoryMesh tries the optional in-process Cognee SDK when installed.
 # Add any local Cognee LLM/embedding provider keys needed by your setup.
 docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up --build
 ```
@@ -260,7 +265,7 @@ docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastruct
 
 The MemoryMesh UI is documented in [`docs/UI_DESIGN_SPEC.md`](docs/UI_DESIGN_SPEC.md) and the full product workspace direction is captured in [`docs/WORKSPACE_AND_UI_BLUEPRINT.md`](docs/WORKSPACE_AND_UI_BLUEPRINT.md). The current UI uses a restrained, professional layout with two user paths: **Run an agent** and **Connect your agent**. It keeps local/cloud memory choices user-facing as memory locations, not backend plumbing.
 
-For judging, use the live React app connected to the API for the real proof run. The standalone HTML file is a visual preview only. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; without them, the UI should show a clear `needs config` state rather than silently claiming Cloud success.
+For judging, use the live React app connected to the API for the real proof run. The standalone HTML file is a visual preview only. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; production local mode requires `COGNEE_LOCAL_SERVICE_URL` or a compatible in-process Cognee SDK. Without a live memory backend, the UI should show a clear fallback state rather than silently claiming Cognee success.
 
 ## Winning demo narrative
 
