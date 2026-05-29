@@ -1,4 +1,10 @@
 -r requirements.txt
 
-# Kept for developer scripts that explicitly install local Cognee support.
-# The production API requirements now include Cognee-compatible pins.
+# Cognee hackathon memory layer (remember/recall/improve/forget) for local/self-hosted mode.
+cognee==1.1.2
+fastapi>=0.116.2,<1
+starlette>=0.48,<1
+pydantic>=2.10.5,<3
+openai>=2.20.0,<3
+python-multipart>=0.0.22
+sqlalchemy>=2.0.39
