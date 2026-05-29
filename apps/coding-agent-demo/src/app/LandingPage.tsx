@@ -586,7 +586,7 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
                 {
                   icon: Database,
                   title: 'Structured memory graph',
-                  body: 'Memory is stored as a queryable knowledge graph, not a flat log — so recall is precise, not fuzzy.',
+                  body: 'Cognee stores hybrid graph-vector memory; MemoryMesh renders it as a Context Map users can inspect.',
                 },
               ].map(f => (
                 <div

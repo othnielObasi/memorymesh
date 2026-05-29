@@ -4,7 +4,7 @@
 
 MemoryMesh is a Cognee-powered user-facing workspace and connection layer for AI agents. It lets people run built-in assistants, or connect the agents they already use, so agent work can be remembered, recovered, improved, and forgotten safely.
 
-For the adoption-ready product strategy, see [`docs/ADOPTION_READY_PRODUCT_STRATEGY.md`](docs/ADOPTION_READY_PRODUCT_STRATEGY.md).
+For the Cognee-powered product strategy, see [`docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md`](docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md) and [`docs/ADOPTION_READY_PRODUCT_STRATEGY.md`](docs/ADOPTION_READY_PRODUCT_STRATEGY.md).
 
 The project is designed to be strong on **both Cognee hackathon grand-prize tracks**:
 
@@ -48,11 +48,14 @@ See:
 - `docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md`
 - `docs/ADOPTION_READY_PRODUCT_STRATEGY.md`
 - `docs/CONNECTED_AGENTS_MCP_API_SDK.md`
+- `docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md`
 - `docs/COGNEE_VS_MEMORYMESH.md`
 
 ## The thesis
 
 Most memory demos show an assistant that remembers the user. MemoryMesh shows an agent that remembers the work.
+
+MemoryMesh is not another memory engine. Cognee is the memory layer; MemoryMesh is the user-facing workflow layer that makes Cognee memory visible through work sessions, recovery briefs, run receipts, Context Maps, and explicit forget controls.
 
 LLM calls are stateless. Long workflows lose task intent, decisions, evidence, failed attempts, checkpoints, and next actions. MemoryMesh uses Cognee's memory lifecycle to turn these into durable work memory:
 
@@ -258,6 +261,7 @@ docs/UI_IMPLEMENTATION_NOTES.md     Implemented UI changes, acceptance checklist
 docs/WORKSPACE_AND_UI_BLUEPRINT.md  Consolidated product workspace and UI design
 docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md Local/self-hosted MemoryMesh console on top of Cognee
 docs/CONNECTED_AGENTS_MCP_API_SDK.md Connected-agent model for Cursor, Codex, Claude Code, OpenClaw, custom agents
+docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md Cognee-powered never-forget workflow strategy
 docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastructure and MemoryMesh product layer
 ```
 

@@ -7,16 +7,24 @@ interface Props {
 }
 
 const OPS = [
-  { op: 'remember', color: '#818cf8', desc: 'Captures context, decisions, and state from the current session into long-term memory.', example: 'Stored: component structure, routing decisions, dependency choices' },
-  { op: 'recall',   color: '#22d3ee', desc: 'Retrieves relevant memories at session start or on demand to restore full context.', example: 'Loaded: previous task state, known patterns, file map' },
-  { op: 'improve',  color: '#34d399', desc: 'Refines existing memories based on new information — so memory gets smarter over time.', example: 'Updated: auth pattern now uses JWT instead of session cookies' },
-  { op: 'forget',   color: '#f87171', desc: 'Expires or removes stale memories to keep the graph clean and recall precise.', example: 'Removed: deprecated API endpoints, resolved bugs' },
+  { op: 'remember', color: '#818cf8', desc: 'Uses Cognee to store the task brief, evidence, decisions, checkpoints, and tool traces from the current run.', example: 'Stored: task contract, failing test, repo map, next safe action' },
+  { op: 'recall',   color: '#22d3ee', desc: 'Restores the right recovery brief when an agent starts again, switches tools, or loses context.', example: 'Loaded: prior decision, source trail, checkpoint, unresolved step' },
+  { op: 'improve',  color: '#34d399', desc: 'Turns verified outcomes and feedback into better future memory instead of another static transcript.', example: 'Improved: support pattern after ticket was resolved and validated' },
+  { op: 'forget',   color: '#f87171', desc: 'Removes stale, sensitive, contradicted, or session-scoped memory through an explicit user action.', example: 'Forgotten: expired endpoint decision and temporary demo notes' },
 ];
 
 const ARCH_STEPS = [
   { label: 'Your agent', sub: 'Cursor / Claude Code / Codex / custom', color: '#818cf8' },
-  { label: 'MemoryMesh', sub: 'MCP server / REST API / SDK', color: '#22d3ee' },
-  { label: 'Cognee graph', sub: 'Knowledge graph · structured memory', color: '#34d399' },
+  { label: 'MemoryMesh', sub: 'Session receipts / Context Map / SDK', color: '#22d3ee' },
+  { label: 'Cognee', sub: 'Hybrid graph-vector memory, local or cloud', color: '#34d399' },
+];
+
+const PROOF_STEPS = [
+  { label: 'Choose agent', body: 'Run a built-in assistant or connect an existing tool.' },
+  { label: 'Choose memory', body: 'Use private local Cognee, Cognee Cloud, or labelled demo memory.' },
+  { label: 'Run work', body: 'Capture task, evidence, decisions, tool traces, and checkpoints.' },
+  { label: 'Recover context', body: 'Recall a brief after context loss so the agent continues safely.' },
+  { label: 'Improve or forget', body: 'Save verified lessons or remove stale and sensitive memory.' },
 ];
 
 export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
@@ -29,13 +37,13 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
         <div className="absolute inset-0 pointer-events-none"
           style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-4">Product</p>
+          <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-4">Cognee-powered workflows</p>
           <h1 className="font-display text-5xl md:text-7xl text-foreground leading-tight mb-6">
-            The complete memory layer<br />
-            <span className="italic" style={{ color: '#818cf8' }}>for AI agents.</span>
+            AI agents that can<br />
+            <span className="italic" style={{ color: '#818cf8' }}>recover the work.</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-10">
-            AI agents are powerful but stateless. Every session starts from scratch — no memory of what happened, what was decided, or what was built. MemoryMesh fixes that.
+            MemoryMesh is not a replacement for Cognee. It is the product layer that turns Cognee memory into recoverable work sessions, receipts, and Context Maps.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <button onClick={onEnterWorkspace}
@@ -58,14 +66,14 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
             <div className="rounded-2xl border border-border bg-card p-8">
               <div className="flex items-center gap-2 mb-6">
                 <AlertCircle className="w-4 h-4 text-red-400" />
-                <span className="text-sm font-medium text-red-400">Without MemoryMesh</span>
+                <span className="text-sm font-medium text-red-400">Without persistent work memory</span>
               </div>
               <ul className="space-y-4">
                 {[
-                  'Agent starts every session with zero context',
+                  'Agent starts each session with weak context',
                   'You re-explain the codebase each time',
                   'Decisions made last week are unknown today',
-                  'Work is duplicated across sessions',
+                  'Work is repeated across sessions',
                   'Context window fills with re-orientation prompts',
                   'Agent makes the same mistakes repeatedly',
                 ].map(item => (
@@ -80,16 +88,16 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
             <div className="rounded-2xl border border-primary/20 bg-primary/5 p-8">
               <div className="flex items-center gap-2 mb-6">
                 <CheckCircle2 className="w-4 h-4 text-green-400" />
-                <span className="text-sm font-medium text-green-400">With MemoryMesh</span>
+                <span className="text-sm font-medium text-green-400">With MemoryMesh and Cognee</span>
               </div>
               <ul className="space-y-4">
                 {[
-                  'Agent recalls full project context on startup',
-                  'Previous decisions, patterns, and files are loaded',
+                  'Agent recalls the right recovery brief on startup',
+                  'Previous decisions, evidence, checkpoints, and files are loaded',
                   'Work resumes exactly where it left off',
                   'Each session builds on the last',
                   'Context window used for actual work',
-                  'Agent learns from past sessions and improves',
+                  'Agent improves from verified outcomes and feedback',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-3 text-sm text-muted-foreground">
                     <CheckCircle2 className="w-3.5 h-3.5 text-green-400 mt-0.5 shrink-0" />
@@ -106,10 +114,10 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
       <section className="px-6 py-20 border-t border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Memory operations</p>
-            <h2 className="font-display text-4xl md:text-5xl text-foreground mb-4">Four operations. Infinite memory.</h2>
+            <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Cognee lifecycle</p>
+            <h2 className="font-display text-4xl md:text-5xl text-foreground mb-4">Four operations. One recoverable run.</h2>
             <p className="text-muted-foreground max-w-xl mx-auto">
-              MemoryMesh exposes four core operations that run automatically during every agent session.
+              MemoryMesh makes Cognee's memory lifecycle visible as work activity users can inspect and trust.
             </p>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
@@ -144,14 +152,14 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
                 <span className="italic">between agent and memory.</span>
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                MemoryMesh sits between your agent and a Cognee knowledge graph. It intercepts session events, classifies them, and manages memory operations automatically — no prompt changes needed.
+                Cognee is the memory engine. MemoryMesh wraps agent work around it: session start, memory activity, recovery brief, Context Map, run receipt, and explicit forget controls.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  'Zero changes to your existing agent prompts',
-                  'Memory operations happen in the background',
-                  'Cognee graph provides structured, queryable memory',
-                  'Full observability — every memory event is logged',
+                  'Use built-in agents or connect existing tools',
+                  'Choose local/self-hosted Cognee or Cognee Cloud',
+                  'Show what was remembered, recalled, improved, and forgotten',
+                  'Produce a run receipt instead of another hidden transcript',
                 ].map(item => (
                   <li key={item} className="flex items-center gap-3 text-sm text-muted-foreground">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
@@ -167,7 +175,7 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
 
             {/* Architecture diagram */}
             <div className="rounded-2xl border border-border bg-card p-8">
-              <p className="text-xs font-mono-ui text-muted-foreground uppercase tracking-widest mb-8 text-center">System architecture</p>
+              <p className="text-xs font-mono-ui text-muted-foreground uppercase tracking-widest mb-8 text-center">Built on Cognee</p>
               <div className="space-y-3">
                 {ARCH_STEPS.map((step, i) => (
                   <div key={step.label}>
@@ -193,9 +201,31 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
                 ))}
               </div>
               <div className="mt-6 pt-6 border-t border-border">
-                <p className="text-xs text-muted-foreground text-center">Memory flows automatically at session start, during work, and at session end</p>
+                <p className="text-xs text-muted-foreground text-center">Memory remains powered by Cognee; MemoryMesh makes the workflow usable.</p>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Proof flow */}
+      <section className="px-6 py-20 border-t border-border">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Never-forget proof</p>
+            <h2 className="font-display text-4xl text-foreground mb-4">The demo must prove recovery, not just storage.</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              The production flow is designed around one judged outcome: can an agent continue useful work after context is lost?
+            </p>
+          </div>
+          <div className="grid md:grid-cols-5 gap-px bg-border rounded-xl overflow-hidden">
+            {PROOF_STEPS.map((step, index) => (
+              <div key={step.label} className="bg-card p-5">
+                <p className="font-mono-ui text-xs text-primary/60 mb-4">{String(index + 1).padStart(2, '0')}</p>
+                <h3 className="text-sm font-semibold text-foreground mb-2">{step.label}</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">{step.body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -210,14 +240,14 @@ export function ProductPage({ onNavigate, onEnterWorkspace }: Props) {
           <div className="grid md:grid-cols-3 gap-4">
             {[
               { icon: RefreshCw, title: 'Instant context recovery', body: 'Recover full session context in under 1 second after any interruption.' },
-              { icon: Brain,     title: 'Knowledge graph storage', body: 'Structured graph memory — not flat logs. Queryable, precise, and fast.' },
+              { icon: Brain,     title: 'Context Map', body: 'A readable map of task, evidence, decisions, checkpoint, outcome, and improved lesson.' },
               { icon: GitBranch, title: 'Multi-session continuity', body: 'Work across unlimited sessions with no re-orientation prompts needed.' },
               { icon: Lock,      title: 'Self-hosted option',       body: 'Run Cognee locally. No data ever leaves your infrastructure.' },
               { icon: Globe,     title: 'Universal compatibility',  body: 'MCP, REST API, and SDK integrations for any agent or workflow.' },
               { icon: Zap,       title: 'Automatic classification', body: 'Memory type (remember/recall/improve/forget) is inferred automatically.' },
               { icon: Database,  title: 'Memory versioning',        body: 'Track how memory evolves over time. Roll back to any prior state.' },
               { icon: CheckCircle2, title: 'Outcome evidence',      body: 'Every session generates verifiable evidence of what was accomplished.' },
-              { icon: AlertCircle,  title: 'Conflict detection',    body: 'Flags contradictory memories so your agent always has accurate context.' },
+              { icon: AlertCircle,  title: 'Honest fallback state', body: 'Clearly marks demo or offline mirror mode when local Cognee or Cognee Cloud is not serving memory.' },
             ].map(cap => (
               <div key={cap.title} className="rounded-xl border border-border bg-card p-5 hover:border-primary/15 transition-colors">
                 <cap.icon className="w-5 h-5 text-primary mb-3" />

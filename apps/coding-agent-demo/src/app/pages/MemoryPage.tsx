@@ -182,39 +182,39 @@ export function MemoryPage({ onNavigate, onEnterWorkspace }: Props) {
         <div className="absolute inset-0 pointer-events-none"
           style={{ background: 'radial-gradient(ellipse 55% 45% at 50% 30%, rgba(52,211,153,0.05) 0%, transparent 70%)' }} />
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-4">Memory</p>
+          <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-4">Cognee memory</p>
           <h1 className="font-display text-5xl md:text-6xl text-foreground leading-tight mb-6">
-            How memory works<br />
-            <span className="italic" style={{ color: '#34d399' }}>under the hood.</span>
+            What the agent<br />
+            <span className="italic" style={{ color: '#34d399' }}>can recover.</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            MemoryMesh uses Cognee to build a structured knowledge graph of your agent's work — not a flat conversation log. Here's exactly how it works.
+            Cognee powers the memory. MemoryMesh shows that memory as work the user can inspect: task, evidence, decisions, checkpoint, recovery brief, outcome, and forget state.
           </p>
         </div>
       </section>
 
-      {/* Knowledge graph concept */}
+      {/* Context map concept */}
       <section className="px-6 py-20 border-t border-border">
         <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Memory model</p>
+              <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Context Map</p>
               <h2 className="font-display text-4xl text-foreground mb-5">
-                A knowledge graph,<br />
-                <span className="italic">not a conversation log.</span>
+                A readable map<br />
+                <span className="italic">of remembered work.</span>
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-5">
-                Most memory systems store raw conversation history and search it with embeddings. This is slow, imprecise, and scales poorly.
+                A useful agent memory is more than a chat transcript. It needs to show what was decided, what evidence mattered, where the work stopped, and what should happen next.
               </p>
               <p className="text-muted-foreground leading-relaxed mb-8">
-                MemoryMesh uses Cognee to build a <strong className="text-foreground">structured knowledge graph</strong> — entities, relationships, and typed facts that can be queried precisely, merged intelligently, and pruned cleanly.
+                MemoryMesh uses Cognee for hybrid graph-vector memory, then renders the result as a <strong className="text-foreground">Context Map</strong> that humans can read before trusting the next agent step.
               </p>
               <div className="space-y-3">
                 {[
-                  { icon: RefreshCw, text: 'Recall is precise — graph traversal, not fuzzy embedding search' },
-                  { icon: GitBranch, text: 'Relationships between memories are explicit and queryable' },
-                  { icon: Shield,    text: 'Contradictions are detected — not silently overwritten' },
-                  { icon: Trash2,    text: 'Pruning is surgical — remove one node, not a blob of text' },
+                  { icon: RefreshCw, text: 'Recall restores a recovery brief, not just a pile of similar text' },
+                  { icon: GitBranch, text: 'Task, evidence, decisions, checkpoints, and outcomes stay connected' },
+                  { icon: Shield,    text: 'Conflicting or stale memory is visible before it misleads the agent' },
+                  { icon: Trash2,    text: 'Forget can target a session, dataset, or stale decision' },
                 ].map(item => (
                   <div key={item.text} className="flex items-start gap-3 text-sm text-muted-foreground">
                     <item.icon className="w-4 h-4 text-primary mt-0.5 shrink-0" />
@@ -226,7 +226,7 @@ export function MemoryPage({ onNavigate, onEnterWorkspace }: Props) {
 
             {/* Graph visualization */}
             <div className="rounded-2xl border border-border bg-card p-8 font-mono-ui">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6 text-center">Memory graph — example</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-widest mb-6 text-center">Context Map example</p>
               <div className="space-y-2 text-xs">
                 {[
                   { indent: 0, color: '#818cf8', text: '◉ Project: MemoryMesh workspace', type: 'entity' },

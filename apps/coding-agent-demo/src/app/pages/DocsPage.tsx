@@ -44,8 +44,8 @@ const SECTIONS = [
     icon: Brain,
     color: '#c084fc',
     title: 'Memory concepts',
-    desc: 'Understand the knowledge graph, memory operations, and retention.',
-    guides: ['How memory works', 'Memory operations', 'Knowledge graph model', 'Retention & pruning'],
+    desc: 'Understand Cognee memory, Context Maps, memory operations, and retention.',
+    guides: ['How memory works', 'Memory operations', 'Context Map model', 'Retention & pruning'],
     tag: null,
   },
   {
