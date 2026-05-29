@@ -1,13 +1,43 @@
 # Optional override for the Best Use of Open Source prize path.
-# It points the API container at a self-hosted Cognee service running on the host.
-# Override COGNEE_LOCAL_SERVICE_URL=http://cognee:8000 if you add Cognee as a
-# service on the same Docker network.
+# It runs open-source Cognee as a separate local service and points the
+# MemoryMesh API container at it over the Docker network.
 services:
+  cognee-local:
+    build: ./services/cognee-local
+    ports:
+      - "8001:8000"
+    environment:
+      COGNEE_LOCAL_API_KEY: ${COGNEE_LOCAL_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      LLM_MODEL: ${OPENAI_CHAT_MODEL:-gpt-4o-mini}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-hash}
+      ENABLE_BACKEND_ACCESS_CONTROL: ${ENABLE_BACKEND_ACCESS_CONTROL:-false}
+      DATA_ROOT_DIRECTORY: /data/.data_storage
+      SYSTEM_ROOT_DIRECTORY: /data/.cognee_system
+      CACHE_ROOT_DIRECTORY: /data/.cognee_cache
+      COGNEE_LOGS_DIR: /data/logs
+    volumes:
+      - cognee_local_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 30s
+
   api:
     environment:
       MEMORYMESH_MEMORY_BACKEND: local_cognee
       COGNEE_ENABLED: "true"
-      COGNEE_LOCAL_SERVICE_URL: ${COGNEE_LOCAL_SERVICE_URL:-http://host.docker.internal:8001}
+      COGNEE_LOCAL_SERVICE_URL: ${COGNEE_LOCAL_SERVICE_URL:-http://cognee-local:8000}
       COGNEE_LOCAL_API_KEY: ${COGNEE_LOCAL_API_KEY:-}
       COGNEE_ALLOW_OFFLINE_FALLBACK: "true"
       COGNEE_DEFAULT_DATASET: memorymesh-agent-work-memory
+    depends_on:
+      cognee-local:
+        condition: service_healthy
+
+volumes:
+  cognee_local_data:

@@ -148,14 +148,14 @@ For development without live keys, MemoryMesh keeps deterministic local fallback
 ```bash
 npm install
 cp .env.oss.example .env
-# Set COGNEE_LOCAL_SERVICE_URL to your self-hosted Cognee service.
-# Docker Compose can reach Cognee on the host at http://host.docker.internal:8001.
-# Use http://127.0.0.1:8001 only when running the API directly outside Docker.
-# Use http://cognee:8000 if Cognee is another service on the same Docker network.
-# If blank, MemoryMesh tries the optional in-process Cognee SDK when installed.
-# Add any local Cognee LLM/embedding provider keys needed by your setup.
 docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up --build
 ```
+
+The override starts a separate `cognee-local` container and points the API at
+`http://cognee-local:8000`. The same service is exposed to the host at
+`http://127.0.0.1:8001` for manual checks. This keeps the heavy open-source
+Cognee runtime out of the Vercel API bundle while still giving local/self-hosted
+deployments a real Cognee backend.
 
 For the self-hosted operator UI, open:
 
