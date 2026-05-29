@@ -8,12 +8,12 @@ export function MemoryLocationsSection() {
       id: 'local',
       name: 'Private local memory',
       icon: Server,
-      status: 'ready',
+      status: 'setup required',
       features: [
         'Open-source Cognee',
-        'Self-hosted on your machine',
+        'Requires a reachable local Cognee service',
         'Complete data privacy',
-        'No external dependencies',
+        'No cloud account required',
         'Full control and customization',
       ],
       color: 'from-blue-500 to-cyan-500',
@@ -22,7 +22,7 @@ export function MemoryLocationsSection() {
       id: 'cloud',
       name: 'Managed cloud memory',
       icon: Cloud,
-      status: 'ready',
+      status: 'account required',
       features: [
         'Cognee Cloud hosting',
         'Managed infrastructure',
@@ -66,7 +66,7 @@ export function MemoryLocationsSection() {
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${location.color} flex items-center justify-center`}>
                     <Icon className="w-6 h-6 text-white" />
                   </div>
-                  <Badge variant={location.status === 'ready' ? 'default' : 'secondary'}>
+                  <Badge variant={location.status.includes('required') ? 'secondary' : 'default'}>
                     {location.status}
                   </Badge>
                 </div>

@@ -1,7 +1,7 @@
 import { Activity, Brain, ChevronLeft } from 'lucide-react';
 
 interface TopbarProps {
-  memoryStatus: 'ready' | 'connecting' | 'offline';
+  memoryStatus: 'ready' | 'connecting' | 'offline' | 'fallback';
   serviceStatus: 'operational' | 'degraded' | 'offline';
   onBack?: () => void;
   userName?: string | null;
@@ -13,9 +13,15 @@ interface TopbarProps {
 export function Topbar({ memoryStatus, serviceStatus, onBack, userName, workspaceName, onSignIn, onSignOut }: TopbarProps) {
   const statusColor = (s: string) => {
     if (s === 'ready' || s === 'operational') return 'text-green-400';
-    if (s === 'connecting' || s === 'degraded') return 'text-yellow-400';
+    if (s === 'connecting' || s === 'degraded' || s === 'fallback') return 'text-yellow-400';
     return 'text-muted-foreground';
   };
+  const memoryDot =
+    memoryStatus === 'ready'
+      ? 'bg-green-400 animate-pulse'
+      : memoryStatus === 'fallback' || memoryStatus === 'connecting'
+        ? 'bg-yellow-400'
+        : 'bg-muted-foreground';
 
   return (
     <div className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50">
@@ -52,7 +58,7 @@ export function Topbar({ memoryStatus, serviceStatus, onBack, userName, workspac
             </span>
           </div>
           <div className="flex items-center gap-1.5">
-            <div className={`w-2 h-2 rounded-full ${memoryStatus === 'ready' ? 'bg-green-400 animate-pulse' : 'bg-muted-foreground'}`} />
+            <div className={`w-2 h-2 rounded-full ${memoryDot}`} />
             <span className="text-xs text-muted-foreground">
               Memory: <span className="capitalize text-foreground/70">{memoryStatus}</span>
             </span>
@@ -63,7 +69,7 @@ export function Topbar({ memoryStatus, serviceStatus, onBack, userName, workspac
                 onClick={onSignOut}
                 className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
               >
-                {userName} · Sign out
+                {userName} - Sign out
               </button>
             ) : (
               <button

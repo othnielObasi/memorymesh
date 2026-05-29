@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Progress } from './ui/progress';
-import { Brain, Eye, TrendingUp, Trash2, CheckCircle2, Loader } from 'lucide-react';
+import { AlertTriangle, Brain, Eye, TrendingUp, Trash2, CheckCircle2, Loader } from 'lucide-react';
 import type { MemoryActivity } from '../App';
 
 interface Props {
@@ -51,6 +51,7 @@ export function SessionSection({ sessionActive, progress, memoryActivity, agentS
   if (mode !== 'run' || (!sessionActive && memoryActivity.length === 0)) return null;
 
   const isDone = !sessionActive && memoryActivity.length > 0;
+  const usedFallback = memoryActivity.some((item) => item.description.toLowerCase().includes('fallback used'));
 
   return (
     <div className="space-y-3">
@@ -64,10 +65,16 @@ export function SessionSection({ sessionActive, progress, memoryActivity, agentS
               <span className="text-xs text-primary font-medium">Running</span>
             </div>
           )}
-          {isDone && (
+          {isDone && !usedFallback && (
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
               <span className="text-xs text-green-400 font-medium">Complete</span>
+            </div>
+          )}
+          {isDone && usedFallback && (
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-yellow-400" />
+              <span className="text-xs text-yellow-400 font-medium">Fallback used</span>
             </div>
           )}
         </div>
@@ -118,7 +125,7 @@ export function SessionSection({ sessionActive, progress, memoryActivity, agentS
               {sessionActive && (
                 <div className="flex items-center gap-2 pl-[90px] pt-1">
                   <Loader className="w-3 h-3 text-primary animate-spin" />
-                  <span className="text-xs text-muted-foreground">Processing…</span>
+                  <span className="text-xs text-muted-foreground">Processing...</span>
                 </div>
               )}
             </div>
@@ -127,10 +134,18 @@ export function SessionSection({ sessionActive, progress, memoryActivity, agentS
 
         {/* Completion */}
         {isDone && (
-          <div className="mx-4 mb-4 flex items-start gap-2 p-3 bg-green-400/8 border border-green-400/20 rounded-lg">
-            <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-green-400 leading-relaxed">
-              Session complete — all work persisted to memory. Recovery summary and outcome evidence are below.
+          <div className={`mx-4 mb-4 flex items-start gap-2 rounded-lg border p-3 ${
+            usedFallback ? 'border-yellow-400/20 bg-yellow-400/8' : 'border-green-400/20 bg-green-400/8'
+          }`}>
+            {usedFallback ? (
+              <AlertTriangle className="w-4 h-4 text-yellow-400 shrink-0 mt-0.5" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0 mt-0.5" />
+            )}
+            <p className={`text-xs leading-relaxed ${usedFallback ? 'text-yellow-300' : 'text-green-400'}`}>
+              {usedFallback
+                ? 'Session completed with offline fallback. The workflow ran, but local Cognee was not the live memory backend for at least one operation.'
+                : 'Session complete - all work persisted to memory. Recovery summary and outcome evidence are below.'}
             </p>
           </div>
         )}

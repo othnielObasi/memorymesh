@@ -27,7 +27,7 @@ interface Props {
 }
 
 const LOCATION_BADGE: Record<string, { label: string; cls: string }> = {
-  local: { label: 'Private local', cls: 'text-green-400 bg-green-400/10 border-green-400/20' },
+  local: { label: 'Private local', cls: 'text-yellow-300 bg-yellow-400/10 border-yellow-400/20' },
   cloud: { label: 'Cloud managed', cls: 'text-primary bg-primary/10 border-primary/20' },
   demo: { label: 'Demo temporary', cls: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20' },
 };

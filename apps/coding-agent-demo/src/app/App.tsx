@@ -1009,7 +1009,7 @@ export const verifyPassword = (pw: string, hash: string) =>
       <div className="min-h-screen bg-background">
         <Toaster position="bottom-right" theme="dark" />
         <Topbar
-          memoryStatus={localRuntime ? (localReady ? 'ready' : 'offline') : 'connecting'}
+          memoryStatus={localRuntime ? (localReady ? 'ready' : localRuntime.fallback_allowed ? 'fallback' : 'offline') : 'connecting'}
           serviceStatus={localRuntimeError ? 'degraded' : 'operational'}
         />
 
@@ -1025,7 +1025,7 @@ export const verifyPassword = (pw: string, hash: string) =>
               </div>
               <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${localStatusClass}`}>
                 <span className={`h-2 w-2 rounded-full ${localReady ? 'bg-green-300' : 'bg-amber-300'}`} />
-                {localReady ? 'local_cognee ready' : 'local_cognee needs setup'}
+                {localReady ? 'local_cognee ready' : localRuntime?.fallback_allowed ? 'fallback only' : 'local_cognee unavailable'}
               </div>
             </div>
             <div className={`mt-4 rounded-lg border px-3 py-2 text-sm ${localStatusClass}`}>
