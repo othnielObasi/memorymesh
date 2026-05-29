@@ -17,8 +17,9 @@ Existing agent
 |---|---|---|
 | Cursor | MCP tools | Persist repo/task decisions and recovery summaries across IDE sessions. |
 | Codex | API/MCP wrapper | Preserve coding task context across agent runs. |
-| Claude Code | MCP server | Give local coding sessions durable project memory. |
-| OpenClaw | Skill/API | Add recovery memory to long-running workflows. |
+| Claude Code | Cognee hook plugin or MemoryMesh API | Give local coding sessions durable project memory. |
+| OpenClaw | Cognee OpenClaw plugin or MemoryMesh API | Add recovery memory to long-running workflows. |
+| OpenCode | Cognee OpenCode plugin or MemoryMesh MCP/API | Preserve tool outputs and recalled context across compaction. |
 | Custom agent | SDK/API | Integrate MemoryMesh into internal support, research, ops, and enterprise agents. |
 
 ## User-facing tools
@@ -28,23 +29,23 @@ The UI should expose these as **Connect your agent**, not as developer-only inte
 A user chooses:
 
 ```text
-Agent to connect: Cursor / Codex / Claude Code / OpenClaw / Custom
+Agent to connect: Cursor / Codex / Claude Code / OpenClaw / OpenCode / Custom
 Connection method: MCP server / REST API / SDK
 Memory location: Private local memory / Managed cloud memory / Demo memory
 ```
 
-## Proposed MCP tools
+## MCP tools
 
-These are the tools MemoryMesh should expose from an MCP server layer:
+The `@memorymsh/mcp-server` package exposes these tools:
 
 ```text
+memorymesh_status
 memorymesh_start_session
 memorymesh_remember
 memorymesh_recall
-memorymesh_checkpoint
-memorymesh_recover
 memorymesh_improve
 memorymesh_forget
+memorymesh_run_agent
 memorymesh_session_summary
 ```
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import inspect
 import os
+from dataclasses import asdict, is_dataclass
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
@@ -18,7 +20,20 @@ def _patch_starlette_for_cognee() -> None:
         starlette_status.HTTP_422_UNPROCESSABLE_CONTENT = starlette_status.HTTP_422_UNPROCESSABLE_ENTITY
 
 
+def _ensure_runtime_dirs() -> None:
+    for key in (
+        "DATA_ROOT_DIRECTORY",
+        "SYSTEM_ROOT_DIRECTORY",
+        "CACHE_ROOT_DIRECTORY",
+        "COGNEE_LOGS_DIR",
+    ):
+        value = os.getenv(key)
+        if value:
+            Path(value).mkdir(parents=True, exist_ok=True)
+
+
 _patch_starlette_for_cognee()
+_ensure_runtime_dirs()
 import cognee  # type: ignore  # noqa: E402
 
 
@@ -66,7 +81,30 @@ async def _maybe_await(value: Any) -> Any:
 
 
 def _clean(value: Any) -> Any:
-    return jsonable_encoder(value)
+    try:
+        return jsonable_encoder(_safe_value(value))
+    except Exception as exc:
+        return {"status": "accepted", "raw_type": type(value).__name__, "serialization_error": str(exc)}
+
+
+def _safe_value(value: Any, *, depth: int = 0) -> Any:
+    if depth > 6:
+        return repr(value)
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if inspect.isawaitable(value):
+        return {"awaitable": type(value).__name__}
+    if is_dataclass(value):
+        return _safe_value(asdict(value), depth=depth + 1)
+    if isinstance(value, dict):
+        return {str(key): _safe_value(item, depth=depth + 1) for key, item in value.items()}
+    if isinstance(value, list | tuple | set):
+        return [_safe_value(item, depth=depth + 1) for item in value]
+    if hasattr(value, "model_dump"):
+        return _safe_value(value.model_dump(), depth=depth + 1)
+    if hasattr(value, "__dict__"):
+        return _safe_value(vars(value), depth=depth + 1)
+    return repr(value)
 
 
 @app.get("/health")

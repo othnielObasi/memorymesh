@@ -20,8 +20,8 @@ const SECTIONS = [
     icon: Terminal,
     color: '#22d3ee',
     title: 'MCP integration',
-    desc: 'Connect Cursor, Claude Code, or any MCP-compatible agent.',
-    guides: ['MCP server setup', 'Cursor configuration', 'Claude Code setup', 'Testing your connection'],
+    desc: 'Connect Cursor or any MCP-compatible agent through the MemoryMesh MCP server.',
+    guides: ['MCP server setup', 'Cursor configuration', 'OpenCode MCP bridge', 'Testing your connection'],
     tag: null,
   },
   {
@@ -101,30 +101,35 @@ const MCP_SNIPPET = `// .cursor/mcp.json
   "mcpServers": {
     "memorymesh": {
       "command": "npx",
-      "args": ["-y", "@memorymesh/mcp-server"],
+      "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
+        "MM_API_URL": "http://127.0.0.1:8000/api",
         "MM_API_KEY": "mm_live_xxxxxxxxxxxxxxxxxxxx",
         "MM_AGENT_ID": "cursor-primary",
-        "MM_MEMORY": "cloud"
+        "MM_PROJECT": "current-repo",
+        "MM_MEMORY_BACKEND": "cognee_cloud"
       }
     }
   }
 }`;
 
-const API_SNIPPET = `// Session lifecycle via REST API
-// POST /v1/sessions/start
-const session = await fetch('https://api.memorymesh.dev/v1/sessions/start', {
+const API_SNIPPET = `// Memory lifecycle via REST API
+// POST /api/memory/recall
+const memory = await fetch('https://api.memorymesh.dev/api/memory/recall', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer mm_live_xxx',
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({ agent_id: 'my-agent', memory: 'cloud' }),
+  body: JSON.stringify({
+    backend: 'cognee_cloud',
+    dataset: 'current-repo',
+    query: 'What decisions, failures, files, and next actions matter?'
+  }),
 }).then(r => r.json());
 
-// session.context contains full recalled memory
-console.log(session.context.summary);
-// → "3 active tasks, 12 architecture decisions, project: e-commerce platform"`;
+// memory contains recalled context from MemoryMesh/Cognee
+console.log(memory);`;
 
 const CHANGELOG = [
   { date: '2025-07-01', tag: 'new',      text: 'Python SDK v0.4 — LangChain and CrewAI integrations' },

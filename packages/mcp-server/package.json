@@ -1,0 +1,45 @@
+{
+  "name": "@memorymsh/mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server that connects Cursor, Claude Code, OpenCode, OpenClaw-compatible clients, Codex wrappers, and custom agents to MemoryMesh durable work memory.",
+  "type": "module",
+  "bin": {
+    "memorymesh-mcp": "src/index.js"
+  },
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/othnielObasi/memorymesh.git",
+    "directory": "packages/mcp-server"
+  },
+  "keywords": [
+    "memorymesh",
+    "mcp",
+    "cognee",
+    "cursor",
+    "claude-code",
+    "opencode",
+    "openclaw",
+    "codex",
+    "agent-memory"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node --check src/index.js",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.21.1"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

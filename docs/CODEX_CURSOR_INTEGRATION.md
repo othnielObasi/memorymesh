@@ -28,7 +28,7 @@ Cursor should use MemoryMesh through MCP when available:
   "mcpServers": {
     "memorymesh": {
       "command": "npx",
-      "args": ["-y", "@memorymesh/mcp-server"],
+      "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
         "MM_API_URL": "http://127.0.0.1:8000/api",
         "MM_API_KEY": "mm_local_or_cloud_key",
@@ -47,7 +47,16 @@ Expected tools:
 - `memorymesh_remember`
 - `memorymesh_improve`
 - `memorymesh_forget`
-- `memorymesh_run_receipt`
+- `memorymesh_run_agent`
+- `memorymesh_session_summary`
+
+## OpenCode, Claude Code, and OpenClaw
+
+Cognee already has native integrations for OpenCode, Claude Code, and OpenClaw. MemoryMesh should not present those as generic Cursor-style installs.
+
+- OpenCode: use the Cognee OpenCode plugin for auto-capture and compaction recall, or connect through `@memorymsh/mcp-server` when the client supports MCP.
+- Claude Code: use the Cognee Claude Code hook/plugin-dir path for prompt, tool, compaction, and session-end hooks, or use MemoryMesh REST API instructions.
+- OpenClaw: use the Cognee OpenClaw plugin for multi-scope memory and session tracking, or use MemoryMesh REST API as a bridge.
 
 ## Codex
 
@@ -79,4 +88,3 @@ With MemoryMesh:
 - different tools can share the same memory;
 - interrupted work can resume from a receipt;
 - local/self-hosted teams can keep memory private through local Cognee.
-

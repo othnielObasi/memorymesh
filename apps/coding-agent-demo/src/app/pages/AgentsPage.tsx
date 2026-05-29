@@ -81,10 +81,13 @@ const CONNECTION_CODE: Record<MethodType, { lang: string; code: string }> = {
   "mcpServers": {
     "memorymesh": {
       "command": "npx",
-      "args": ["-y", "@memorymesh/mcp-server"],
+      "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
+        "MM_API_URL": "http://127.0.0.1:8000/api",
         "MM_API_KEY": "your-api-key",
-        "MM_MEMORY_LOCATION": "cloud"
+        "MM_AGENT_ID": "cursor-primary",
+        "MM_PROJECT": "current-repo",
+        "MM_MEMORY_BACKEND": "local_cognee"
       }
     }
   }
@@ -93,51 +96,69 @@ const CONNECTION_CODE: Record<MethodType, { lang: string; code: string }> = {
   api: {
     lang: 'typescript',
     code: `// Wrap your agent's session lifecycle
-import { MemoryMesh } from '@memorymesh/sdk';
+import { MemoryMeshClient } from '@memorymsh/sdk';
 
-const mm = new MemoryMesh({ apiKey: process.env.MM_API_KEY });
+const mm = new MemoryMeshClient({
+  baseUrl: process.env.MM_API_URL ?? 'http://127.0.0.1:8000',
+  apiKey: process.env.MM_API_KEY,
+  defaultMemoryBackend: 'local_cognee',
+});
 
 // On session start — restore context
-const context = await mm.recall({ agentId: 'my-agent' });
-console.log(context.summary); // full prior state
+const context = await mm.recall({
+  dataset: 'current-repo',
+  query: 'What decisions, failures, files, and next actions matter?'
+});
+console.log(context);
 
 // During session — persist decisions
 await mm.remember({
-  agentId: 'my-agent',
-  content: 'Decided to use Postgres over SQLite for scale',
-  tags: ['architecture', 'database'],
+  dataset: 'current-repo',
+  text: 'Decision: use Postgres over SQLite for scale',
+  metadata: { agent_id: 'my-agent' },
 });
 
 // On session end — improve and clean up
-await mm.improve({ agentId: 'my-agent' });`,
+await mm.improveMemory({
+  dataset: 'current-repo',
+  feedback: 'Future agents should check migrations before changing auth.'
+});`,
   },
   sdk: {
     lang: 'python',
     code: `# Python SDK — works with LangChain, CrewAI, etc.
-from memorymesh import MemoryMesh, session
+from memorymesh import MemoryMeshClient
 
-mm = MemoryMesh(api_key=os.environ["MM_API_KEY"])
+mm = MemoryMeshClient(
+    base_url=os.environ.get("MM_API_URL", "http://127.0.0.1:8000"),
+    api_key=os.environ.get("MM_API_KEY"),
+    default_memory_backend="local_cognee",
+)
 
-# Use as a context manager for automatic lifecycle
-with mm.session(agent_id="research-agent") as ctx:
-    # ctx.memory contains full prior context
-    print(ctx.memory.summary)
+context = mm.recall(
+    query="Restore project memory before this run",
+    dataset="current-repo",
+)
 
-    result = your_agent.run(
-        task="Continue researching neural scaling laws",
-        context=ctx.memory.to_prompt()
-    )
+result = your_agent.run(
+    task="Continue the work",
+    context=context,
+)
 
-    # Memory auto-commits on exit
-    ctx.remember(result.decisions)`,
+mm.remember(
+    text=str(result),
+    dataset="current-repo",
+    metadata={"agent_id": "research-agent"},
+)`,
   },
 };
 
 const EXTERNAL_AGENTS = [
   { name: 'Cursor', desc: 'Add MCP config to .cursor/mcp.json', method: 'MCP' },
-  { name: 'Claude Code', desc: 'Use MCP server or the REST API', method: 'MCP / API' },
+  { name: 'Claude Code', desc: 'Use Cognee hooks/plugin-dir, or MemoryMesh REST API', method: 'Plugin / API' },
   { name: 'Codex', desc: 'Integrate via REST API or SDK', method: 'API / SDK' },
-  { name: 'OpenClaw', desc: 'Native MCP support built-in', method: 'MCP' },
+  { name: 'OpenClaw', desc: 'Use Cognee OpenClaw plugin, or MemoryMesh API bridge', method: 'Plugin / API' },
+  { name: 'OpenCode', desc: 'Use Cognee OpenCode plugin, or MemoryMesh MCP/API', method: 'Plugin / MCP' },
   { name: 'LangChain', desc: 'Use the Python SDK memory module', method: 'SDK' },
   { name: 'CrewAI', desc: 'Drop-in memory tool via Python SDK', method: 'SDK' },
   { name: 'AutoGen', desc: 'Custom memory plugin via SDK', method: 'SDK' },

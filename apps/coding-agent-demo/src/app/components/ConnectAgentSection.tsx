@@ -17,9 +17,10 @@ interface Props {
 
 const AGENTS = [
   { id: 'cursor',      name: 'Cursor',       icon: Terminal, color: 'from-indigo-500 to-blue-500',   method: 'MCP' },
-  { id: 'claude-code', name: 'Claude Code',  icon: Code2,    color: 'from-amber-500 to-orange-500',  method: 'MCP' },
+  { id: 'claude-code', name: 'Claude Code',  icon: Code2,    color: 'from-amber-500 to-orange-500',  method: 'Plugin' },
   { id: 'codex',       name: 'Codex',        icon: Box,      color: 'from-violet-500 to-purple-500', method: 'API' },
-  { id: 'openclaw',    name: 'OpenClaw',     icon: Zap,      color: 'from-teal-500 to-green-500',    method: 'MCP' },
+  { id: 'openclaw',    name: 'OpenClaw',     icon: Zap,      color: 'from-teal-500 to-green-500',    method: 'Plugin' },
+  { id: 'opencode',    name: 'OpenCode',     icon: Terminal, color: 'from-sky-500 to-cyan-500',      method: 'Plugin' },
   { id: 'custom',      name: 'Custom agent', icon: Plug,     color: 'from-pink-500 to-rose-500',     method: 'SDK' },
 ];
 
@@ -32,7 +33,7 @@ const CONFIG: Record<Method, { filename: string; code: (id: string) => string }>
   "mcpServers": {
     "memorymesh": {
       "command": "npx",
-      "args": ["-y", "@memorymesh/mcp-server"],
+      "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
         "MM_API_URL": "http://127.0.0.1:8000/api",
         "MM_API_KEY": "mm_local_or_cloud_key",
