@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Header, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from app.db.postgres import DESCENDING
 
@@ -77,6 +77,8 @@ from app.services.cognee_memory import CogneeMemoryService
 from app.services.coding_agent_demo import CodingAgentRecoveryDemoService
 from app.services.real_coding_agent import MemoryMeshCodingAgentService
 from app.services.production_agents import ProductionAgentRuntime
+from app.auth_api import principal_dependency
+from app.security import EnterprisePrincipal
 
 router = APIRouter()
 
@@ -163,7 +165,7 @@ def build_run_events(trace, retrieved_rules=None, simulate_restart=False, task_m
 async def maybe_get_idempotent_response(payload: RunTaskRequest, store: PostgresStore) -> TaskRunResponse | None:
     if not payload.idempotency_key:
         return None
-    existing = await store.find_one_by('agent_runs', {'idempotency_key': payload.idempotency_key}, sort=[('created_at', DESCENDING)])
+    existing = await store.find_one_by('agent_runs', {'workspace_id': payload.workspace_id, 'idempotency_key': payload.idempotency_key}, sort=[('created_at', DESCENDING)])
     if not existing:
         return None
     trace_doc = await store.find_one('execution_traces', existing['trace_id'])
@@ -256,6 +258,11 @@ async def persist_run_context(payload: RunTaskRequest, trace, run_events, store:
     }
     checkpoint = TaskCheckpoint(
         _id=new_id('chk'),
+        organisation_id=payload.organisation_id,
+        workspace_id=payload.workspace_id,
+        project_id=payload.project_id,
+        environment_id=payload.environment_id,
+        actor_id=payload.actor_id,
         task_id=trace.task_id,
         trace_id=trace.id,
         agent_id=trace.agent_id,
@@ -294,6 +301,11 @@ async def persist_run_context(payload: RunTaskRequest, trace, run_events, store:
     run_id = new_id('run')
     await store.insert_one('agent_runs', {
         '_id': run_id,
+        'organisation_id': payload.organisation_id,
+        'workspace_id': payload.workspace_id,
+        'project_id': payload.project_id,
+        'environment_id': payload.environment_id,
+        'actor_id': payload.actor_id,
         'task_id': trace.task_id,
         'trace_id': trace.id,
         'checkpoint_id': checkpoint.id,
@@ -318,7 +330,18 @@ async def persist_run_context(payload: RunTaskRequest, trace, run_events, store:
             result_ref=f'agent_runs/{run_id}',
             result_hash=stable_hash({'trace_id': trace.id, 'checkpoint_id': checkpoint.id}),
         )
-        await store.upsert_one('idempotency_keys', {'key': payload.idempotency_key}, record.model_dump(by_alias=True))
+        await store.upsert_one(
+            'idempotency_keys',
+            {'workspace_id': payload.workspace_id, 'key': payload.idempotency_key},
+            {
+                **record.model_dump(by_alias=True),
+                'organisation_id': payload.organisation_id,
+                'workspace_id': payload.workspace_id,
+                'project_id': payload.project_id,
+                'environment_id': payload.environment_id,
+                'actor_id': payload.actor_id,
+            },
+        )
 
     for event in run_events:
         await insert_run_event(store, task_id=trace.task_id, trace_id=trace.id, checkpoint_id=checkpoint.id, event=event)
@@ -730,7 +753,12 @@ async def run_real_coding_agent(payload: dict[str, Any] | None = None, svc=Depen
 
 
 @router.post('/agents/run')
-async def run_production_agent(payload: dict[str, Any] | None = None, svc=Depends(get_services)):
+async def run_production_agent(
+    payload: dict[str, Any] | None = None,
+    idempotency_header: str | None = Header(default=None, alias="Idempotency-Key"),
+    principal: EnterprisePrincipal = Depends(principal_dependency),
+    svc=Depends(get_services),
+):
     payload = payload or {}
     runtime = ProductionAgentRuntime(svc['store'], svc['settings'])
     try:
@@ -741,6 +769,8 @@ async def run_production_agent(payload: dict[str, Any] | None = None, svc=Depend
             workspace_path=payload.get('workspace_path'),
             repository_name=payload.get('repository_name'),
             github_url=payload.get('github_url'),
+            tenant_context=principal.context_dict(),
+            idempotency_key=str(payload.get('idempotency_key') or idempotency_header or '').strip() or None,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -971,14 +1001,20 @@ async def approve_developer_memory(task_id: str, payload: ApproveMemoryRequest, 
 
 
 @router.post('/runs/{task_id}/actions/execute', response_model=ActionExecutionResponse)
-async def execute_action(task_id: str, payload: ActionExecutionRequest, svc=Depends(get_services)):
-    existing = await svc['store'].find_one_by('action_executions', {'idempotency_key': payload.idempotency_key})
+async def execute_action(
+    task_id: str,
+    payload: ActionExecutionRequest,
+    principal: EnterprisePrincipal = Depends(principal_dependency),
+    svc=Depends(get_services),
+):
+    workspace_id = principal.workspace_id
+    existing = await svc['store'].find_one_by('action_executions', {'workspace_id': workspace_id, 'idempotency_key': payload.idempotency_key})
     if existing:
         return ActionExecutionResponse(action_id=existing['_id'], replayed=True, decision=existing['decision'], result=existing.get('result', {}), idempotency_key=payload.idempotency_key)
     decision = svc['governance'].evaluate_tool_call(payload.tool_name, payload.input, {'task_id': task_id, 'tool_type': payload.tool_type.value, 'idempotency_key': payload.idempotency_key})
     result = {'status': 'approval_required' if decision.decision == Decision.needs_approval else decision.decision.value, 'tool_name': payload.tool_name}
     action_id = new_id('action')
-    await svc['store'].insert_one('action_executions', {'_id': action_id, 'task_id': task_id, 'tool_name': payload.tool_name, 'tool_type': payload.tool_type.value, 'idempotency_key': payload.idempotency_key, 'decision': decision.decision.value, 'result': result, 'input_hash': stable_hash(payload.input), 'created_at': utc_now()})
+    await svc['store'].insert_one('action_executions', {'_id': action_id, **principal.context_dict(), 'task_id': task_id, 'tool_name': payload.tool_name, 'tool_type': payload.tool_type.value, 'idempotency_key': payload.idempotency_key, 'decision': decision.decision.value, 'result': result, 'input_hash': stable_hash(payload.input), 'created_at': utc_now()})
     return ActionExecutionResponse(action_id=action_id, replayed=False, decision=decision.decision, result=result, idempotency_key=payload.idempotency_key)
 
 

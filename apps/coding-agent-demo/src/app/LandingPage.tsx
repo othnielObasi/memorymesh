@@ -12,6 +12,8 @@ import { DocsPage } from './pages/DocsPage';
 
 interface LandingPageProps {
   onEnterWorkspace: () => void;
+  onSignIn: () => void;
+  onGetStarted: () => void;
 }
 
 export type PageType = 'home' | 'product' | 'agents' | 'memory' | 'pricing' | 'docs';
@@ -157,10 +159,12 @@ interface PageShellProps {
   currentPage: PageType;
   onNavigate: (page: PageType) => void;
   onEnterWorkspace: () => void;
+  onSignIn: () => void;
+  onGetStarted: () => void;
   children: ReactNode;
 }
 
-function PageShell({ currentPage, onNavigate, onEnterWorkspace, children }: PageShellProps) {
+function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetStarted, children }: PageShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <style>{`
@@ -204,11 +208,16 @@ function PageShell({ currentPage, onNavigate, onEnterWorkspace, children }: Page
           </nav>
 
           <div className="flex items-center gap-2">
-            <button className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2">
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+            >
               Sign in
             </button>
             <button
-              onClick={onEnterWorkspace}
+              type="button"
+              onClick={onGetStarted}
               className="flex items-center gap-1.5 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-all font-medium"
             >
               Get started
@@ -256,7 +265,7 @@ function PageShell({ currentPage, onNavigate, onEnterWorkspace, children }: Page
 }
 
 // --- Main landing page ---
-export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
+export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: LandingPageProps) {
   const [scrolled, setScrolled] = useState(false);
   const [currentPage, setCurrentPage] = useState<PageType>('home');
 
@@ -288,6 +297,8 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
         currentPage={currentPage}
         onNavigate={navigate}
         onEnterWorkspace={onEnterWorkspace}
+        onSignIn={onSignIn}
+        onGetStarted={onGetStarted}
       >
         {page}
       </PageShell>
@@ -348,11 +359,16 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
 
           {/* CTAs */}
           <div className="flex items-center gap-2">
-            <button className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2">
+            <button
+              type="button"
+              onClick={onSignIn}
+              className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+            >
               Sign in
             </button>
             <button
-              onClick={onEnterWorkspace}
+              type="button"
+              onClick={onGetStarted}
               className="flex items-center gap-1.5 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-all font-medium"
             >
               Get started
@@ -411,7 +427,8 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
               {/* CTAs */}
               <div className="flex items-center gap-3 flex-wrap mb-10">
                 <button
-                  onClick={onEnterWorkspace}
+                  type="button"
+                  onClick={onGetStarted}
                   className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-all text-sm"
                 >
                   Start for free
@@ -528,10 +545,11 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
               <p className="text-muted-foreground leading-relaxed mb-8">
                 Every feature is designed for the reality of how AI agents actually work — not the ideal case where context never runs out.
               </p>
-              <button
-                onClick={onEnterWorkspace}
-                className="inline-flex items-center gap-2 text-sm text-primary border border-primary/30 px-5 py-2.5 rounded-lg hover:bg-primary/8 transition-all"
-              >
+                <button
+                  type="button"
+                  onClick={onGetStarted}
+                  className="inline-flex items-center gap-2 text-sm text-primary border border-primary/30 px-5 py-2.5 rounded-lg hover:bg-primary/8 transition-all"
+                >
                 Explore the workspace
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -650,7 +668,9 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
                 cta: 'Try the demo',
                 highlight: false,
               },
-            ].map(loc => (
+            ].map(loc => {
+              const isCloud = loc.title === 'Cloud memory';
+              return (
               <div
                 key={loc.title}
                 className={`rounded-xl border p-6 flex flex-col ${
@@ -698,7 +718,8 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
                 </ul>
 
                 <button
-                  onClick={onEnterWorkspace}
+                  type="button"
+                  onClick={isCloud ? onGetStarted : onEnterWorkspace}
                   className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all ${
                     loc.highlight
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -708,7 +729,8 @@ export function LandingPage({ onEnterWorkspace }: LandingPageProps) {
                   {loc.cta}
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

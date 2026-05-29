@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 
 from app.api import router
+from app.auth_api import router as auth_router
 from app.enterprise_api import router as enterprise_router
 from app.config import get_settings
 from app.db.postgres import PostgresStore
@@ -75,4 +76,5 @@ async def ready():
 
 
 app.include_router(router, prefix=settings.api_prefix)
+app.include_router(auth_router, prefix=f'{settings.api_prefix}/auth')
 app.include_router(enterprise_router, prefix=f'{settings.api_prefix}/enterprise')

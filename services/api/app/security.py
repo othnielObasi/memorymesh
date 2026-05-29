@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import base64
+import json
 import secrets
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional
 
 from fastapi import Header, HTTPException, Request, status
@@ -90,6 +92,79 @@ def hash_api_key(raw_key: str, settings: Settings | None = None) -> str:
     return hmac.new(settings.signing_secret.encode("utf-8"), raw_key.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def hash_password(password: str, settings: Settings | None = None) -> str:
+    settings = settings or get_settings()
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        f"{salt}:{settings.signing_secret}".encode("utf-8"),
+        240_000,
+    ).hex()
+    return f"pbkdf2_sha256$240000${salt}${digest}"
+
+
+def verify_password(password: str, encoded: str, settings: Settings | None = None) -> bool:
+    settings = settings or get_settings()
+    try:
+        algorithm, iterations, salt, expected = encoded.split("$", 3)
+        if algorithm != "pbkdf2_sha256":
+            return False
+        digest = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            f"{salt}:{settings.signing_secret}".encode("utf-8"),
+            int(iterations),
+        ).hex()
+        return hmac.compare_digest(digest, expected)
+    except Exception:
+        return False
+
+
+def _b64url_encode(payload: bytes) -> str:
+    return base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+
+
+def _b64url_decode(payload: str) -> bytes:
+    padding = "=" * (-len(payload) % 4)
+    return base64.urlsafe_b64decode(f"{payload}{padding}".encode("ascii"))
+
+
+def create_session_token(payload: dict, settings: Settings | None = None, expires_in_hours: int = 168) -> tuple[str, datetime]:
+    settings = settings or get_settings()
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)
+    body = {
+        **payload,
+        "exp": int(expires_at.timestamp()),
+        "iat": int(datetime.now(timezone.utc).timestamp()),
+        "jti": new_id("sess"),
+        "typ": "memorymesh_session",
+    }
+    encoded_body = _b64url_encode(json.dumps(body, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8"))
+    signature = hmac.new(settings.signing_secret.encode("utf-8"), encoded_body.encode("ascii"), hashlib.sha256).digest()
+    return f"mms_{encoded_body}.{_b64url_encode(signature)}", expires_at
+
+
+def verify_session_token(token: str, settings: Settings | None = None) -> dict | None:
+    settings = settings or get_settings()
+    if not token.startswith("mms_") or "." not in token:
+        return None
+    encoded_body, encoded_signature = token[4:].split(".", 1)
+    expected = hmac.new(settings.signing_secret.encode("utf-8"), encoded_body.encode("ascii"), hashlib.sha256).digest()
+    try:
+        supplied = _b64url_decode(encoded_signature)
+        if not hmac.compare_digest(expected, supplied):
+            return None
+        payload = json.loads(_b64url_decode(encoded_body).decode("utf-8"))
+        if payload.get("typ") != "memorymesh_session":
+            return None
+        if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):
+            return None
+        return payload
+    except Exception:
+        return None
+
+
 def create_api_key_value(prefix: str = "cnt") -> str:
     return f"{prefix}_{secrets.token_urlsafe(32)}"
 
@@ -138,10 +213,32 @@ async def resolve_principal(
     x_environment_id: str | None = Header(default=None, alias="X-Environment-Id"),
 ) -> EnterprisePrincipal:
     raw_key = x_memorymesh_api_key
+    if raw_key is not None and not isinstance(raw_key, str):
+        raw_key = None
+    if authorization is not None and not isinstance(authorization, str):
+        authorization = None
     if not raw_key and authorization and authorization.lower().startswith("bearer "):
         raw_key = authorization.split(" ", 1)[1].strip()
 
     if raw_key:
+        session = verify_session_token(raw_key, settings)
+        if session:
+            user_id = str(session.get("user_id") or "")
+            user = await store.find_one("users", user_id) if user_id else None
+            if not user or user.get("status", "active") != "active":
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or inactive MemoryMesh session")
+            role = user.get("role") or session.get("role") or "owner"
+            return EnterprisePrincipal(
+                organisation_id=str(user.get("organisation_id") or session.get("organisation_id")),
+                workspace_id=str(user.get("workspace_id") or session.get("workspace_id")),
+                project_id=str(user.get("project_id") or session.get("project_id") or settings.default_project_id),
+                environment_id=str(user.get("environment_id") or session.get("environment_id") or settings.default_environment_id),
+                actor_id=str(user.get("user_id") or user.get("_id") or session.get("actor_id") or user.get("email")),
+                role=role,
+                scopes=scopes_for_role(role),
+                api_key_id=None,
+            )
+
         key_hash = hash_api_key(raw_key, settings)
         doc = await store.find_one_by("api_keys", {"key_hash": key_hash})
         if not doc or doc.get("status") != "active":

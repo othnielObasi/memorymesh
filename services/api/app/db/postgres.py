@@ -128,8 +128,9 @@ class PostgresStore:
             "CREATE INDEX IF NOT EXISTS idx_ca_records_agent ON memorymesh_records (collection, (data->>'agent_id'))",
             "CREATE INDEX IF NOT EXISTS idx_ca_records_job_status ON memorymesh_records (collection, (data->>'status')) WHERE collection = 'background_jobs'",
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_api_key_hash ON memorymesh_records ((data->>'key_hash')) WHERE collection = 'api_keys' AND data ? 'key_hash'",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_user_email ON memorymesh_records ((data->>'email_lower')) WHERE collection = 'users' AND data ? 'email_lower'",
             "CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_action_idempotency ON memorymesh_records ((data->>'workspace_id'), (data->>'idempotency_key')) WHERE collection = 'action_executions' AND data ? 'idempotency_key'",
-            "CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_idempotency_keys ON memorymesh_records ((data->>'key')) WHERE collection = 'idempotency_keys' AND data ? 'key'",
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_ca_idempotency_keys ON memorymesh_records ((data->>'workspace_id'), (data->>'key')) WHERE collection = 'idempotency_keys' AND data ? 'key'",
         ]
         async with self.pool.acquire() as conn:
             async with conn.transaction():

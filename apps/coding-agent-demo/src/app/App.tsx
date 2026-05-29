@@ -72,6 +72,57 @@ const resolveApiBase = () => {
 const API_BASE =
   resolveApiBase();
 
+const AUTH_STORAGE_KEY = 'memorymesh.auth.v1';
+
+type TenantContext = {
+  organisation_id: string;
+  workspace_id: string;
+  project_id: string;
+  environment_id: string;
+  actor_id: string;
+};
+
+type AuthSession = {
+  accessToken: string;
+  expiresAt: string;
+  user: {
+    user_id: string;
+    name: string;
+    email: string;
+    role: string;
+    tenant: TenantContext;
+  };
+};
+
+function readAuthSession(): AuthSession | null {
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AuthSession;
+    if (!parsed.accessToken || !parsed.user) return null;
+    if (parsed.expiresAt && new Date(parsed.expiresAt).getTime() < Date.now()) {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeAuthSession(session: AuthSession | null) {
+  if (!session) {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+    return;
+  }
+  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
+}
+
+function runIdempotencyKey(agentId: string | null, location: 'local' | 'cloud' | 'demo') {
+  const agent = agentId || 'build';
+  return `ui-${location}-${agent}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
 type RunStep = {
   progress: number;
   status: string;
@@ -195,10 +246,20 @@ function memoryBackend(location: 'local' | 'cloud' | 'demo') {
   return 'offline_mirror';
 }
 
-async function runBackendAgent(agentId: string | null, task: string, location: 'local' | 'cloud' | 'demo', project?: ConnectedProject | null) {
+async function runBackendAgent(
+  agentId: string | null,
+  task: string,
+  location: 'local' | 'cloud' | 'demo',
+  project?: ConnectedProject | null,
+  authSession?: AuthSession | null,
+  idempotencyKey?: string,
+) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (authSession?.accessToken) headers.Authorization = `Bearer ${authSession.accessToken}`;
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const response = await fetch(`${API_BASE}/api/agents/run`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       agent_id: agentId || 'build',
       task,
@@ -206,6 +267,7 @@ async function runBackendAgent(agentId: string | null, task: string, location: '
       repository_name: project?.repositoryName,
       workspace_path: project?.workspacePath,
       github_url: project?.githubUrl,
+      idempotency_key: idempotencyKey,
     }),
   });
   if (!response.ok) {
@@ -270,6 +332,107 @@ function memoryActivitiesFromReceipt(receipt: any): MemoryActivity[] {
   });
 }
 
+function AuthPanel({
+  mode,
+  onModeChange,
+  onSubmit,
+  onCancel,
+  busy,
+  error,
+}: {
+  mode: 'signin' | 'signup';
+  onModeChange: (mode: 'signin' | 'signup') => void;
+  onSubmit: (payload: { name: string; email: string; password: string; organisationName: string }) => void;
+  onCancel: () => void;
+  busy: boolean;
+  error: string | null;
+}) {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [organisationName, setOrganisationName] = useState('');
+  const isSignup = mode === 'signup';
+
+  return (
+    <section className="rounded-xl border border-primary/20 bg-card p-5 shadow-sm">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <p className="text-xs font-mono-ui uppercase tracking-widest text-primary">Cloud account</p>
+          <h2 className="mt-1 text-xl font-semibold text-foreground">
+            {isSignup ? 'Create your MemoryMesh workspace' : 'Sign in to Cloud Memory'}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
+            Cloud runs are saved to your organisation workspace, protected by a signed session, and retried with idempotency keys.
+          </p>
+        </div>
+        <button onClick={onCancel} className="w-fit rounded-lg border border-border px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground">
+          Dismiss
+        </button>
+      </div>
+
+      <form
+        className="mt-5 grid gap-3 md:grid-cols-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onSubmit({ name, email, password, organisationName });
+        }}
+      >
+        {isSignup && (
+          <input
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+            placeholder="Your name"
+            className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+            required
+          />
+        )}
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="Email"
+          type="email"
+          className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          required
+        />
+        <input
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          placeholder="Password"
+          type="password"
+          minLength={isSignup ? 8 : 1}
+          className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          required
+        />
+        {isSignup && (
+          <input
+            value={organisationName}
+            onChange={(event) => setOrganisationName(event.target.value)}
+            placeholder="Organisation"
+            className="rounded-lg border border-border bg-input px-3 py-2 text-sm text-foreground outline-none focus:border-primary"
+          />
+        )}
+        <button
+          type="submit"
+          disabled={busy}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-opacity disabled:opacity-60"
+        >
+          {busy ? 'Working...' : isSignup ? 'Create account' : 'Sign in'}
+        </button>
+      </form>
+
+      <div className="mt-3 flex flex-wrap items-center gap-3 text-xs">
+        <button
+          onClick={() => onModeChange(isSignup ? 'signin' : 'signup')}
+          className="text-primary hover:underline"
+        >
+          {isSignup ? 'Already have an account? Sign in' : 'New here? Create account'}
+        </button>
+        {error && <span className="text-red-300">{error}</span>}
+      </div>
+    </section>
+  );
+}
+
 export default function App() {
   const isLocalConsole =
     new URLSearchParams(window.location.search).get('mode') === 'local' ||
@@ -314,6 +477,10 @@ export default function App() {
   const [sessionHistory, setSessionHistory] = useState<SessionRecord[]>([]);
   const [localRuntime, setLocalRuntime] = useState<RuntimeStatus | null>(null);
   const [localRuntimeError, setLocalRuntimeError] = useState<string | null>(null);
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => readAuthSession());
+  const [authMode, setAuthMode] = useState<'signin' | 'signup' | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLocalConsole) return;
@@ -342,6 +509,61 @@ export default function App() {
 
   const addHistory = (rec: Omit<SessionRecord, 'id'>) =>
     setSessionHistory(h => [{ ...rec, id: Date.now().toString() }, ...h].slice(0, 10));
+
+  const saveAuthSession = (session: AuthSession | null) => {
+    writeAuthSession(session);
+    setAuthSession(session);
+  };
+
+  const handleAuthSubmit = async (payload: { name: string; email: string; password: string; organisationName: string }) => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      const isSignup = authMode === 'signup';
+      const response = await fetch(`${API_BASE}/api/auth/${isSignup ? 'signup' : 'login'}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          isSignup
+            ? {
+                name: payload.name,
+                email: payload.email,
+                password: payload.password,
+                organisation_name: payload.organisationName || undefined,
+              }
+            : { email: payload.email, password: payload.password },
+        ),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(typeof body.detail === 'string' ? body.detail : 'Authentication failed');
+      }
+      const session: AuthSession = {
+        accessToken: body.access_token,
+        expiresAt: body.expires_at,
+        user: body.user,
+      };
+      saveAuthSession(session);
+      setAuthMode(null);
+      setMemoryLocation('cloud');
+      setView('workspace');
+      toast.success(isSignup ? 'Workspace created' : 'Signed in', {
+        description: `${session.user.tenant.workspace_id} is active for cloud memory.`,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Authentication failed';
+      setAuthError(message);
+      toast.error('Account action failed', { description: message });
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const handleSignOut = () => {
+    saveAuthSession(null);
+    if (memoryLocation === 'cloud') setMemoryLocation('demo');
+    toast.info('Signed out');
+  };
 
   // ── Mode switch ────────────────────────────────────────────────────
   const handleModeChange = (m: 'run' | 'connect') => {
@@ -438,6 +660,14 @@ export default function App() {
     const profile = RUN_PROFILES[selectedAgent || 'build'] ?? RUN_PROFILES.build;
     const runTask = taskInput || profile.fallbackTask;
 
+    if (!isLocalConsole && memoryLocation === 'cloud' && !authSession) {
+      setAuthMode('signin');
+      toast.info('Sign in required for Cloud Memory', {
+        description: 'Demo memory remains available without an account.',
+      });
+      return;
+    }
+
     if (isLocalConsole) {
       if (!selectedAgent || !taskInput.trim()) return;
       if (localRuntime && !localRuntime.ready) {
@@ -462,7 +692,7 @@ export default function App() {
       try {
         setProgress(35);
         setAgentStatus('Writing and recalling local memory...');
-        const receipt = await runBackendAgent(selectedAgent, taskInput.trim(), 'local', connectedProject);
+        const receipt = await runBackendAgent(selectedAgent, taskInput.trim(), 'local', connectedProject, null, runIdempotencyKey(selectedAgent, 'local'));
         const activities = memoryActivitiesFromReceipt(receipt);
         setMemoryActivity(
           activities.length
@@ -503,7 +733,7 @@ export default function App() {
       return;
     }
 
-    const backendRun = runBackendAgent(selectedAgent, runTask, memoryLocation, connectedProject)
+    const backendRun = runBackendAgent(selectedAgent, runTask, memoryLocation, connectedProject, authSession, runIdempotencyKey(selectedAgent, memoryLocation))
       .then((receipt) => ({ receipt }))
       .catch((error) => ({ error }));
     setSessionActive(true);
@@ -814,7 +1044,34 @@ export const verifyPassword = (pw: string, hash: string) =>
     return (
       <>
         <Toaster position="bottom-right" theme="dark" />
-        <LandingPage onEnterWorkspace={() => setView('workspace')} />
+        <LandingPage
+          onEnterWorkspace={() => setView('workspace')}
+          onSignIn={() => {
+            setAuthError(null);
+            setAuthMode('signin');
+          }}
+          onGetStarted={() => {
+            setAuthError(null);
+            setAuthMode('signup');
+          }}
+        />
+        {authMode && (
+          <div className="fixed inset-0 z-[80] flex items-start justify-center overflow-y-auto bg-background/80 px-4 py-20 backdrop-blur-sm">
+            <div className="w-full max-w-lg">
+              <AuthPanel
+                mode={authMode}
+                onModeChange={setAuthMode}
+                onSubmit={handleAuthSubmit}
+                onCancel={() => {
+                  setAuthMode(null);
+                  setAuthError(null);
+                }}
+                busy={authBusy}
+                error={authError}
+              />
+            </div>
+          </div>
+        )}
       </>
     );
   }
@@ -826,9 +1083,31 @@ export const verifyPassword = (pw: string, hash: string) =>
   return (
     <div className="min-h-screen bg-background">
       <Toaster position="bottom-right" theme="dark" />
-      <Topbar memoryStatus="ready" serviceStatus="operational" onBack={() => setView('landing')} />
+      <Topbar
+        memoryStatus="ready"
+        serviceStatus="operational"
+        onBack={() => setView('landing')}
+        userName={authSession?.user.name}
+        workspaceName={authSession?.user.tenant.workspace_id}
+        onSignIn={() => setAuthMode('signin')}
+        onSignOut={handleSignOut}
+      />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-10">
+        {authMode && (
+          <AuthPanel
+            mode={authMode}
+            onModeChange={setAuthMode}
+            onSubmit={handleAuthSubmit}
+            onCancel={() => {
+              setAuthMode(null);
+              setAuthError(null);
+            }}
+            busy={authBusy}
+            error={authError}
+          />
+        )}
+
         <AgentsSection selectedAgent={selectedAgent} onSelectAgent={setSelectedAgent} mode={mode} />
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -841,7 +1120,10 @@ export const verifyPassword = (pw: string, hash: string) =>
               taskInput={taskInput}
               onTaskInputChange={setTaskInput}
               memoryLocation={memoryLocation}
-              onMemoryLocationChange={setMemoryLocation}
+              onMemoryLocationChange={(location) => {
+                setMemoryLocation(location);
+                if (location === 'cloud' && !authSession) setAuthMode('signin');
+              }}
               selectedAgent={selectedAgent}
               selectedConnection={selectedConnection}
               onStartSession={handleStartSession}

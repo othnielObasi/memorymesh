@@ -4,9 +4,13 @@ interface TopbarProps {
   memoryStatus: 'ready' | 'connecting' | 'offline';
   serviceStatus: 'operational' | 'degraded' | 'offline';
   onBack?: () => void;
+  userName?: string | null;
+  workspaceName?: string | null;
+  onSignIn?: () => void;
+  onSignOut?: () => void;
 }
 
-export function Topbar({ memoryStatus, serviceStatus, onBack }: TopbarProps) {
+export function Topbar({ memoryStatus, serviceStatus, onBack, userName, workspaceName, onSignIn, onSignOut }: TopbarProps) {
   const statusColor = (s: string) => {
     if (s === 'ready' || s === 'operational') return 'text-green-400';
     if (s === 'connecting' || s === 'degraded') return 'text-yellow-400';
@@ -36,6 +40,11 @@ export function Topbar({ memoryStatus, serviceStatus, onBack }: TopbarProps) {
         </div>
 
         <div className="flex items-center gap-5">
+          {workspaceName && (
+            <div className="hidden md:block text-xs text-muted-foreground">
+              Workspace: <span className="text-foreground/80">{workspaceName}</span>
+            </div>
+          )}
           <div className="flex items-center gap-1.5">
             <Activity className={`w-3.5 h-3.5 ${statusColor(serviceStatus)}`} />
             <span className="text-xs text-muted-foreground">
@@ -48,6 +57,23 @@ export function Topbar({ memoryStatus, serviceStatus, onBack }: TopbarProps) {
               Memory: <span className="capitalize text-foreground/70">{memoryStatus}</span>
             </span>
           </div>
+          {(userName || onSignIn) && (
+            userName ? (
+              <button
+                onClick={onSignOut}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs text-foreground hover:bg-muted/50 transition-colors"
+              >
+                {userName} · Sign out
+              </button>
+            ) : (
+              <button
+                onClick={onSignIn}
+                className="rounded-lg border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15 transition-colors"
+              >
+                Sign in
+              </button>
+            )
+          )}
         </div>
       </div>
     </div>

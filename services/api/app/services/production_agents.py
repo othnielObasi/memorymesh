@@ -4,7 +4,7 @@ from typing import Any
 
 from app.config import Settings
 from app.db.postgres import PostgresStore
-from app.models.schemas import new_id, utc_now
+from app.models.schemas import new_id, stable_hash, utc_now
 from app.services.agent_runner import AgentRunner
 from app.services.cognee_memory import CogneeMemoryService
 from app.services.governance import GovernanceService
@@ -36,8 +36,11 @@ class ProductionAgentRuntime:
         workspace_path: str | None = None,
         repository_name: str | None = None,
         github_url: str | None = None,
+        tenant_context: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         agent = (agent_id or "build").strip().lower()
+        tenant_context = tenant_context or {}
         if agent == "build":
             return await self._run_build(
                 task=task,
@@ -45,11 +48,13 @@ class ProductionAgentRuntime:
                 workspace_path=workspace_path,
                 repository_name=repository_name,
                 github_url=github_url,
+                tenant_context=tenant_context,
+                idempotency_key=idempotency_key,
             )
         if agent == "research":
-            return await self._run_research(task=task, memory_backend=memory_backend)
+            return await self._run_research(task=task, memory_backend=memory_backend, tenant_context=tenant_context, idempotency_key=idempotency_key)
         if agent == "support":
-            return await self._run_support(task=task, memory_backend=memory_backend)
+            return await self._run_support(task=task, memory_backend=memory_backend, tenant_context=tenant_context, idempotency_key=idempotency_key)
         raise ValueError(f"Unknown production agent: {agent_id}")
 
     async def _run_build(
@@ -60,6 +65,8 @@ class ProductionAgentRuntime:
         workspace_path: str | None,
         repository_name: str | None,
         github_url: str | None,
+        tenant_context: dict[str, str],
+        idempotency_key: str | None,
     ) -> dict[str, Any]:
         memory = self.memory.with_backend(memory_backend)
         agent = MemoryMeshCodingAgentService(self.store, memory, self.settings)
@@ -101,9 +108,11 @@ class ProductionAgentRuntime:
             },
             model_trace={"provider": "not_required_for_code_patch", "model": "tool_runtime"},
             raw=result,
+            tenant_context=tenant_context,
+            idempotency_key=idempotency_key,
         )
 
-    async def _run_research(self, *, task: str, memory_backend: str | None) -> dict[str, Any]:
+    async def _run_research(self, *, task: str, memory_backend: str | None, tenant_context: dict[str, str], idempotency_key: str | None) -> dict[str, Any]:
         memory = self.memory.with_backend(memory_backend)
         task = task or "Compare durable memory approaches for AI agents"
         dataset = "memorymesh-research-assistant"
@@ -155,9 +164,11 @@ class ProductionAgentRuntime:
                 "receipt": "Research run includes source trail, Cognee memory operations, LLM synthesis, and reusable follow-up state.",
             },
             model_trace={"provider": model.provider, "model": model.model, "used_fallback": model.used_fallback, "attempts": [a.__dict__ for a in model.attempts]},
+            tenant_context=tenant_context,
+            idempotency_key=idempotency_key,
         )
 
-    async def _run_support(self, *, task: str, memory_backend: str | None) -> dict[str, Any]:
+    async def _run_support(self, *, task: str, memory_backend: str | None, tenant_context: dict[str, str], idempotency_key: str | None) -> dict[str, Any]:
         memory = self.memory.with_backend(memory_backend)
         task = task or "Investigate unresolved billing-delay support tickets"
         dataset = "memorymesh-support-assistant"
@@ -220,6 +231,8 @@ class ProductionAgentRuntime:
                 "receipt": "Support run includes ticket tool traces, governance decisions, memory operations, and recovery state.",
             },
             model_trace={"provider": model.provider, "model": model.model, "used_fallback": model.used_fallback, "attempts": [a.__dict__ for a in model.attempts]},
+            tenant_context=tenant_context,
+            idempotency_key=idempotency_key,
         )
 
     async def _receipt(
@@ -237,17 +250,31 @@ class ProductionAgentRuntime:
         outcome: dict[str, Any],
         model_trace: dict[str, Any],
         raw: dict[str, Any] | None = None,
+        tenant_context: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
+        tenant_context = tenant_context or {}
+        workspace_id = tenant_context.get("workspace_id") or "wrk_default"
+        if idempotency_key:
+            existing = await self.store.find_one_by("agent_runs", {"workspace_id": workspace_id, "idempotency_key": idempotency_key})
+            if existing:
+                replay = dict(existing)
+                replay["idempotent_replay"] = True
+                return replay
+
         run_id = new_id("agent_run")
         task_id = new_id("task")
         memory_ops = [self._normalise_memory_op(op) for op in memory_operations if op]
         receipt = {
+            **tenant_context,
             "run_id": run_id,
             "task_id": task_id,
             "agent_id": agent_id,
             "agent_name": agent_name,
             "task": task,
             "status": status,
+            "idempotency_key": idempotency_key,
+            "idempotent_replay": False,
             "final_output": final_output,
             "evidence": evidence,
             "memory_operations": memory_ops,
@@ -259,10 +286,29 @@ class ProductionAgentRuntime:
             "raw": raw or {},
         }
         await self.store.insert_one("agent_runs", {"_id": run_id, **receipt})
+        if idempotency_key:
+            await self.store.upsert_one(
+                "idempotency_keys",
+                {"workspace_id": workspace_id, "key": idempotency_key},
+                {
+                    "_id": f"{workspace_id}:{idempotency_key}",
+                    **tenant_context,
+                    "key": idempotency_key,
+                    "operation": "agents.run",
+                    "status": "completed",
+                    "run_id": run_id,
+                    "task_id": task_id,
+                    "result_ref": f"agent_runs/{run_id}",
+                    "result_hash": stable_hash({"run_id": run_id, "task_id": task_id, "workspace_id": workspace_id}),
+                    "created_at": utc_now(),
+                    "updated_at": utc_now(),
+                },
+            )
         await self.store.insert_one(
             "run_events",
             {
                 "_id": new_id("event"),
+                **tenant_context,
                 "task_id": task_id,
                 "trace_id": None,
                 "checkpoint_id": recovery.get("checkpoint_id"),
