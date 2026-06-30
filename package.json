@@ -1,0 +1,21 @@
+{
+  "name": "memorymesh-monorepo",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:console": "npm --workspace @memorymesh/console run dev",
+    "dev:agent": "npm --workspace @memorymesh/coding-agent-demo run dev",
+    "build:console": "npm --workspace @memorymesh/console run build",
+    "build:agent": "npm --workspace @memorymesh/coding-agent-demo run build",
+    "api:dev": "cd services/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "test:api": "cd services/api && python -m pytest tests",
+    "demo:oss": "./scripts/demo_open_source_cognee.sh",
+    "demo:cloud": "./scripts/demo_cognee_cloud.sh",
+    "demo:dual": "python scripts/run_hackathon_demo.py --dual",
+    "build:all": "npm run build:agent && npm run build:console && npm --workspace @memorymesh/sdk run build"
+  }
+}

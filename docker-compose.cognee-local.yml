@@ -1,0 +1,9 @@
+# Optional override for the Best Use of Open Source prize path.
+# It forces MemoryMesh to use the local/open-source Cognee SDK path.
+services:
+  api:
+    environment:
+      MEMORYMESH_MEMORY_BACKEND: local_cognee
+      COGNEE_ENABLED: "true"
+      COGNEE_ALLOW_OFFLINE_FALLBACK: "true"
+      COGNEE_DEFAULT_DATASET: memorymesh-agent-work-memory

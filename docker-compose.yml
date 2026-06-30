@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: memorymesh_dev
+      POSTGRES_USER: memorymesh
+      POSTGRES_PASSWORD: memorymesh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U memorymesh -d memorymesh_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./services/api
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://memorymesh:memorymesh@postgres:5432/memorymesh_dev}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      AUTH_REQUIRED: ${AUTH_REQUIRED:-false}
+      SIGNING_SECRET: ${SIGNING_SECRET:-replace-with-a-secure-secret}
+      DEFAULT_ORGANISATION_ID: ${DEFAULT_ORGANISATION_ID:-org_default}
+      DEFAULT_WORKSPACE_ID: ${DEFAULT_WORKSPACE_ID:-wrk_default}
+      DEFAULT_PROJECT_ID: ${DEFAULT_PROJECT_ID:-prj_default}
+      DEFAULT_ENVIRONMENT_ID: ${DEFAULT_ENVIRONMENT_ID:-dev}
+      MEMORYMESH_MEMORY_BACKEND: ${MEMORYMESH_MEMORY_BACKEND:-auto}
+      COGNEE_ENABLED: ${COGNEE_ENABLED:-false}
+      COGNEE_SERVICE_URL: ${COGNEE_SERVICE_URL:-}
+      COGNEE_API_KEY: ${COGNEE_API_KEY:-}
+      COGNEE_DEFAULT_DATASET: ${COGNEE_DEFAULT_DATASET:-memorymesh-agent-work-memory}
+      COGNEE_ALLOW_OFFLINE_FALLBACK: ${COGNEE_ALLOW_OFFLINE_FALLBACK:-true}
+      TRUEFOUNDRY_BASE_URL: ${TRUEFOUNDRY_BASE_URL:-}
+      TRUEFOUNDRY_API_KEY: ${TRUEFOUNDRY_API_KEY:-}
+      TRUEFOUNDRY_MODEL: ${TRUEFOUNDRY_MODEL:-global.anthropic.claude-haiku-4-5-20251001-v1-0}
+      TRUEFOUNDRY_CHEAP_MODEL: ${TRUEFOUNDRY_CHEAP_MODEL:-us.amazon.nova-micro-v1-0}
+      TRUEFOUNDRY_FALLBACK_MODEL: ${TRUEFOUNDRY_FALLBACK_MODEL:-us.amazon.nova-2-lite-v1-0}
+      TRUEFOUNDRY_STRONG_MODEL: ${TRUEFOUNDRY_STRONG_MODEL:-global.anthropic.claude-sonnet-4-5-20250929-v1-0}
+      TRUEFOUNDRY_EMBEDDING_MODEL: ${TRUEFOUNDRY_EMBEDDING_MODEL:-amazon.titan-embed-text-v2-0}
+      TRUEFOUNDRY_TIMEOUT_SECONDS: ${TRUEFOUNDRY_TIMEOUT_SECONDS:-45}
+      TRUEFOUNDRY_MCP_GATEWAY_URL: ${TRUEFOUNDRY_MCP_GATEWAY_URL:-}
+      TRUEFOUNDRY_MCP_API_KEY: ${TRUEFOUNDRY_MCP_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  recovery-worker:
+    build: ./services/api
+    command: python /app/workers/recovery-worker/main.py
+    environment:
+      MEMORYMESH_API_BASE_URL: http://api:8000
+      MEMORYMESH_WORKER_API_KEY: ${MEMORYMESH_WORKER_API_KEY:-}
+      MEMORYMESH_WORKER_POLL_SECONDS: ${WORKER_POLL_INTERVAL_SECONDS:-5}
+    volumes:
+      - ./workers:/app/workers:ro
+    depends_on:
+      api:
+        condition: service_started
+
+  console:
+    build: ./apps/console
+    ports:
+      - "5174:5174"
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      api:
+        condition: service_started
+
+  coding-agent-demo:
+    build: ./apps/coding-agent-demo
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  postgres_data:
