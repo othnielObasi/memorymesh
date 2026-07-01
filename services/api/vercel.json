@@ -1,0 +1,21 @@
+{
+  "functions": {
+    "app/main.py": {
+      "maxDuration": 300
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/app/main.py"
+    }
+  ],
+  "env": {
+    "ENVIRONMENT": "production",
+    "API_PREFIX": "/api",
+    "MEMORYMESH_DEV_INMEMORY_STORE": "true",
+    "MEMORYMESH_ALLOW_ANY_LOCAL_PROJECT": "false",
+    "MEMORYMESH_MEMORY_BACKEND": "auto",
+    "COGNEE_ALLOW_OFFLINE_FALLBACK": "true"
+  }
+}

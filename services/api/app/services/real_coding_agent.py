@@ -4,9 +4,12 @@ import asyncio
 import difflib
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
+import urllib.request
+import zipfile
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Any
@@ -58,6 +61,7 @@ class MemoryMeshCodingAgentService:
         *,
         task: str = "Fix dashboard RBAC so only admins can access the dashboard.",
         workspace_path: str | None = None,
+        github_url: str | None = None,
         repository_name: str = "sample-dashboard-service",
         dataset: str | None = None,
         session_id: str | None = None,
@@ -65,19 +69,22 @@ class MemoryMeshCodingAgentService:
         simulate_context_loss: bool = True,
         run_tests: bool = True,
         forget_after_run: bool = False,
+        write_in_place: bool = False,
     ) -> dict[str, Any]:
         task_id = new_id("coding_task")
         trace_id = new_id("coding_trace")
         session_id = session_id or new_id("coding_session")
         dataset_name = dataset or f"memorymesh-real-coding-agent-{repository_name}"
         checkpoint_id = new_id("coding_chk")
-        workspace = self._prepare_workspace(workspace_path, repository_name, reset_workspace)
+        workspace = self._prepare_workspace(workspace_path, repository_name, reset_workspace, github_url=github_url, write_in_place=write_in_place)
         tool_trace: list[dict[str, Any]] = []
 
         await self._event(task_id, trace_id, None, "request_received", "Request", f"Coding task received: {task}")
 
         files = self._repo_files(workspace)
         tool_trace.append({"tool": "list_files", "status": "ok", "output": files})
+        project_profile = self._project_profile(workspace, files)
+        tool_trace.append({"tool": "profile_project", "status": "ok", "output": project_profile})
 
         relevant_paths = self._select_relevant_files(files, task)
         inspected = {path: self._read_safe_file(workspace / path) for path in relevant_paths}
@@ -88,22 +95,26 @@ class MemoryMeshCodingAgentService:
         if tests_before:
             tool_trace.append({"tool": "run_tests", "phase": "before_patch", **asdict(tests_before)})
 
-        task_contract = self._task_contract(task, repository_name, files, relevant_paths)
+        task_contract = self._task_contract(task, repository_name, files, relevant_paths, project_profile)
         repo_map = self._repo_map(repository_name, files, inspected)
-        decision = {
-            "kind": "engineering_decision",
-            "decision": "Patch the central dashboard access function, not each caller.",
-            "reason": "A central guard is easier to test and prevents duplicated role checks.",
-            "source": "MemoryMesh local coding-agent analysis",
-        }
+        patch_plan = self._patch_plan(workspace, task)
+        decision = self._engineering_decision(task, patch_plan, project_profile)
         failure_memory = {
-            "kind": "failure_memory",
+            "kind": "test_signal",
             "failed_signal": self._summarise_command(tests_before) if tests_before else "Tests not run before patch.",
-            "next_safe_action": "Patch app/dashboard.py, then rerun the RBAC tests.",
+            "next_safe_action": patch_plan["next_action"],
         }
+        handoff = self._agent_handoff(
+            task=task,
+            repository_name=repository_name,
+            project_profile=project_profile,
+            relevant_paths=relevant_paths,
+            tests_before=tests_before,
+            patch_plan=patch_plan,
+        )
 
         remember_results = []
-        for memory in (task_contract, repo_map, decision, failure_memory):
+        for memory in (task_contract, repo_map, decision, failure_memory, handoff):
             remember_results.append(
                 await self.cognee.remember(
                     text=self._memory_text(memory),
@@ -120,7 +131,8 @@ class MemoryMeshCodingAgentService:
             "repository": repository_name,
             "relevant_paths": relevant_paths,
             "tests_before": asdict(tests_before) if tests_before else None,
-            "next_safe_action": "patch_dashboard_access_guard",
+            "project_profile": project_profile,
+            "next_safe_action": patch_plan["resume_from"],
         }
         await self._save_checkpoint(task_id, trace_id, checkpoint_id, checkpoint_state, remember_results[0].operation_id if remember_results else None)
         await self._event(task_id, trace_id, checkpoint_id, "checkpoint_saved", "Checkpoint", "Pre-patch coding-agent state saved.")
@@ -142,15 +154,15 @@ class MemoryMeshCodingAgentService:
         tool_trace.extend(patch_result["tool_trace"])
         files_changed = patch_result["files_changed"]
 
-        tests_after = await self._run_tests(workspace) if run_tests else None
+        tests_after = await self._run_tests(workspace) if run_tests and patch_result["patched"] else tests_before
         if tests_after:
             tool_trace.append({"tool": "run_tests", "phase": "after_patch", **asdict(tests_after)})
 
-        outcome = "passed" if tests_after and tests_after.exit_code == 0 else "needs_review"
+        outcome = self._run_outcome(task=task, patch_result=patch_result, tests_after=tests_after)
         feedback = (
             "For dashboard RBAC tasks, prefer a central access-guard patch and verify with tests before completion."
             if outcome == "passed"
-            else "When a supported patch still fails, keep the checkpoint and escalate with failing test output."
+            else "When no safe automatic patch is available, create a precise Codex/Cursor handoff with project profile, relevant files, test signal, and next action."
         )
         improve = await self.cognee.improve(
             feedback=feedback,
@@ -195,30 +207,48 @@ class MemoryMeshCodingAgentService:
             "tests_before": asdict(tests_before) if tests_before else None,
             "tests_after": asdict(tests_after) if tests_after else None,
             "tests_passed": bool(tests_after and tests_after.exit_code == 0),
+            "outcome": outcome,
+            "project_profile": project_profile,
+            "agent_handoff": handoff,
             "files_changed": files_changed,
             "tool_trace": tool_trace,
             "recovery_brief": {
-                "resume_from": "patch_dashboard_access_guard",
+                "resume_from": patch_plan["resume_from"],
                 "restored_memory": recall.results,
-                "next_actions": [
-                    "Use recalled task contract and failure signal.",
-                    "Patch the central dashboard access guard.",
-                    "Run tests to prove the fix.",
-                    "Improve memory with the verified outcome.",
-                ],
+                "next_actions": handoff["next_actions"],
             },
-            "final_message": (
-                "MemoryMesh ran a real local coding agent: it inspected the repo, observed failing tests, saved Cognee memory, simulated context loss, recalled recovery context, patched code, reran tests, and improved future behaviour."
-            ),
+            "final_message": self._final_message(outcome, project_profile, patch_result),
         }
 
-    def _prepare_workspace(self, workspace_path: str | None, repository_name: str, reset_workspace: bool) -> Path:
+    def _prepare_workspace(
+        self,
+        workspace_path: str | None,
+        repository_name: str,
+        reset_workspace: bool,
+        *,
+        github_url: str | None = None,
+        write_in_place: bool = False,
+    ) -> Path:
+        if github_url:
+            return self._clone_github_repo(github_url, repository_name, reset_workspace)
+
         if workspace_path:
             workspace = Path(workspace_path).expanduser().resolve()
             self._assert_workspace_allowed(workspace)
             if not workspace.exists() or not workspace.is_dir():
                 raise ValueError(f"workspace_path does not exist or is not a directory: {workspace}")
-            return workspace
+            if write_in_place:
+                return workspace
+            slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", repository_name or workspace.name)
+            copy_path = (self.workspace_root / f"{slug}-{new_id('copy')}").resolve()
+            if reset_workspace and copy_path.exists():
+                shutil.rmtree(copy_path)
+            shutil.copytree(
+                workspace,
+                copy_path,
+                ignore=shutil.ignore_patterns(*IGNORED_DIRS),
+            )
+            return copy_path
 
         workspace = (self.workspace_root / f"{repository_name}-{new_id('run')}").resolve()
         if reset_workspace and workspace.exists():
@@ -226,8 +256,70 @@ class MemoryMeshCodingAgentService:
         shutil.copytree(self.sample_repo, workspace)
         return workspace
 
+    def _clone_github_repo(self, github_url: str, repository_name: str, reset_workspace: bool) -> Path:
+        url = github_url.strip()
+        match = re.match(r"^https://github\.com/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)(?:\.git)?/?$", url)
+        if not match:
+            raise ValueError("github_url must be an HTTPS GitHub repository URL")
+        slug = re.sub(r"[^A-Za-z0-9_.-]+", "-", repository_name or url.rstrip("/").split("/")[-1].removesuffix(".git"))
+        workspace = (self.workspace_root / f"{slug}-{new_id('repo')}").resolve()
+        if reset_workspace and workspace.exists():
+            shutil.rmtree(workspace)
+        try:
+            completed = subprocess.run(
+                ["git", "clone", "--depth", "1", url, str(workspace)],
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+        except FileNotFoundError:
+            return self._download_github_archive(match.group(1), match.group(2), workspace)
+        if completed.returncode != 0:
+            try:
+                return self._download_github_archive(match.group(1), match.group(2), workspace)
+            except Exception as archive_error:
+                raise ValueError(f"git clone failed: {(completed.stderr or completed.stdout)[-500:]}; archive fallback failed: {archive_error}") from archive_error
+        return workspace
+
+    def _download_github_archive(self, owner: str, repo: str, workspace: Path) -> Path:
+        archive_url = f"https://github.com/{owner}/{repo}/archive/HEAD.zip"
+        workspace.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="memorymesh-github-") as tmp:
+            tmp_path = Path(tmp)
+            archive_path = tmp_path / "repo.zip"
+            request = urllib.request.Request(
+                archive_url,
+                headers={"User-Agent": "MemoryMesh/2.1"},
+            )
+            with urllib.request.urlopen(request, timeout=60) as response:
+                content_length = int(response.headers.get("Content-Length") or 0)
+                if content_length > 50 * 1024 * 1024:
+                    raise ValueError("GitHub archive is too large for the serverless runtime.")
+                archive_path.write_bytes(response.read())
+            extract_dir = tmp_path / "extract"
+            with zipfile.ZipFile(archive_path) as archive:
+                archive.extractall(extract_dir)
+            roots = [path for path in extract_dir.iterdir() if path.is_dir()]
+            if not roots:
+                raise ValueError("GitHub archive did not contain a repository directory.")
+            if workspace.exists():
+                shutil.rmtree(workspace)
+            shutil.copytree(
+                roots[0],
+                workspace,
+                ignore=shutil.ignore_patterns(*IGNORED_DIRS),
+            )
+        return workspace
+
     def _assert_workspace_allowed(self, workspace: Path) -> None:
-        allowed_roots = [self.workspace_root.resolve(), self.sample_repo.resolve(), self.repo_root.resolve()]
+        if getattr(self.settings, "memorymesh_allow_any_local_project", False):
+            return
+        configured_roots = []
+        raw_roots = str(getattr(self.settings, "memorymesh_local_project_roots", "") or "")
+        for raw in raw_roots.split(os.pathsep):
+            if raw.strip():
+                configured_roots.append(Path(raw.strip()).expanduser().resolve())
+        allowed_roots = [self.workspace_root.resolve(), self.sample_repo.resolve(), self.repo_root.resolve(), *configured_roots]
         for root in allowed_roots:
             try:
                 workspace.relative_to(root)
@@ -265,6 +357,117 @@ class MemoryMeshCodingAgentService:
         scored.sort(key=lambda item: (-item[0], item[1]))
         return [path for score, path in scored[:8] if score > 0] or files[:8]
 
+    def _project_profile(self, workspace: Path, files: list[str]) -> dict[str, Any]:
+        manifests = [path for path in files if Path(path).name in {"package.json", "pyproject.toml", "requirements.txt", "Cargo.toml", "go.mod", "pom.xml"}]
+        docs = [path for path in files if Path(path).name.lower().startswith("readme") or path.lower().startswith("docs/")]
+        tests = [path for path in files if "test" in path.lower() or path.lower().startswith("tests/")]
+        source = [path for path in files if path not in docs and path not in tests and path not in manifests]
+        extensions: dict[str, int] = {}
+        for path in files:
+            suffix = Path(path).suffix or "[no extension]"
+            extensions[suffix] = extensions.get(suffix, 0) + 1
+        likely_stack = []
+        if any(path.endswith("package.json") for path in manifests):
+            likely_stack.append("node")
+        if any(path.endswith("pyproject.toml") or path.endswith("requirements.txt") for path in manifests):
+            likely_stack.append("python")
+        if any(path.endswith("go.mod") for path in manifests):
+            likely_stack.append("go")
+        if any(path.endswith("Cargo.toml") for path in manifests):
+            likely_stack.append("rust")
+        if any(path.endswith("pom.xml") for path in manifests):
+            likely_stack.append("java")
+        return {
+            "workspace": str(workspace),
+            "file_count": len(files),
+            "source_count": len(source),
+            "test_count": len(tests),
+            "doc_count": len(docs),
+            "manifests": manifests[:12],
+            "docs": docs[:12],
+            "tests": tests[:12],
+            "extensions": dict(sorted(extensions.items(), key=lambda item: (-item[1], item[0]))[:12]),
+            "likely_stack": likely_stack or ["unknown"],
+            "entry_candidates": self._entry_candidates(files),
+        }
+
+    def _entry_candidates(self, files: list[str]) -> list[str]:
+        preferred_names = {"main.py", "app.py", "index.ts", "index.tsx", "index.js", "server.ts", "server.js", "__init__.py"}
+        entries = [path for path in files if Path(path).name in preferred_names]
+        return entries[:10]
+
+    def _patch_plan(self, workspace: Path, task: str) -> dict[str, str]:
+        dashboard = workspace / "app" / "dashboard.py"
+        task_lower = task.lower()
+        if dashboard.exists() and ("dashboard" in task_lower or "rbac" in task_lower or "admin" in task_lower):
+            return {
+                "mode": "safe_patch",
+                "resume_from": "patch_dashboard_access_guard",
+                "next_action": "Patch app/dashboard.py, then rerun the RBAC tests.",
+            }
+        return {
+            "mode": "handoff",
+            "resume_from": "handoff_to_connected_agent",
+            "next_action": "Open this receipt in Codex/Cursor, inspect the relevant files, make the task-specific change, then save the outcome back to MemoryMesh.",
+        }
+
+    def _engineering_decision(self, task: str, patch_plan: dict[str, str], project_profile: dict[str, Any]) -> dict[str, Any]:
+        if patch_plan["mode"] == "safe_patch":
+            return {
+                "kind": "engineering_decision",
+                "decision": "Patch the central dashboard access function, not each caller.",
+                "reason": "A central guard is easier to test and prevents duplicated role checks.",
+                "source": "MemoryMesh local coding-agent analysis",
+            }
+        return {
+            "kind": "engineering_decision",
+            "decision": "Do not guess a code patch for an unknown repository shape.",
+            "reason": "MemoryMesh should preserve project context and produce a high-quality handoff for Codex/Cursor when no safe automatic patch pattern is available.",
+            "task": task,
+            "project_stack": project_profile.get("likely_stack", []),
+            "source": "MemoryMesh local coding-agent analysis",
+        }
+
+    def _agent_handoff(
+        self,
+        *,
+        task: str,
+        repository_name: str,
+        project_profile: dict[str, Any],
+        relevant_paths: list[str],
+        tests_before: CommandResult | None,
+        patch_plan: dict[str, str],
+    ) -> dict[str, Any]:
+        test_signal = self._summarise_command(tests_before) if tests_before else "Tests were not run."
+        return {
+            "kind": "agent_handoff",
+            "repository": repository_name,
+            "task": task,
+            "for_tools": ["Codex", "Cursor", "Claude Code", "custom agent"],
+            "project_profile": {
+                "likely_stack": project_profile.get("likely_stack", []),
+                "file_count": project_profile.get("file_count"),
+                "test_count": project_profile.get("test_count"),
+                "manifests": project_profile.get("manifests", []),
+                "entry_candidates": project_profile.get("entry_candidates", []),
+            },
+            "relevant_paths": relevant_paths,
+            "test_signal": test_signal,
+            "next_actions": [
+                "Load this MemoryMesh receipt before editing.",
+                "Inspect the listed relevant paths first.",
+                patch_plan["next_action"],
+                "Run the detected tests or project-specific verification.",
+                "Call MemoryMesh remember/improve with the final decision and proof.",
+            ],
+            "memorymesh_api": {
+                "remember": "POST /api/memory/remember",
+                "recall": "POST /api/memory/recall",
+                "improve": "POST /api/memory/improve",
+                "receipt": "POST /api/agents/run",
+            },
+        }
+
     def _read_safe_file(self, path: Path) -> str:
         text = path.read_text(encoding="utf-8")
         return self._redact_secrets(text)
@@ -290,13 +493,13 @@ class MemoryMeshCodingAgentService:
     def _apply_supported_patch(self, workspace: Path, task: str) -> dict[str, Any]:
         target = workspace / "app" / "dashboard.py"
         if not target.exists():
-            return {"files_changed": [], "tool_trace": [{"tool": "write_file", "status": "skipped", "reason": "No supported dashboard.py target found."}]}
+            return {"patched": False, "files_changed": [], "tool_trace": [{"tool": "write_file", "status": "skipped", "reason": "No supported dashboard.py target found. Created handoff instead."}]}
 
         before = target.read_text(encoding="utf-8")
         old = "    return bool(user)\n"
         new = "    return bool(user and user.get(\"role\") == \"admin\")\n"
         if old not in before:
-            return {"files_changed": [], "tool_trace": [{"tool": "write_file", "status": "skipped", "path": "app/dashboard.py", "reason": "Expected vulnerable guard not found."}]}
+            return {"patched": False, "files_changed": [], "tool_trace": [{"tool": "write_file", "status": "skipped", "path": "app/dashboard.py", "reason": "Expected vulnerable guard not found. Created handoff instead."}]}
         after = before.replace(old, new, 1)
         target.write_text(after, encoding="utf-8")
 
@@ -307,6 +510,7 @@ class MemoryMeshCodingAgentService:
 
         diff = "".join(difflib.unified_diff(before.splitlines(True), after.splitlines(True), fromfile="app/dashboard.py.before", tofile="app/dashboard.py.after"))
         return {
+            "patched": True,
             "files_changed": ["app/dashboard.py", "docs/RBAC_DECISION.md"],
             "tool_trace": [
                 {"tool": "write_file", "status": "ok", "path": "app/dashboard.py", "diff": diff},
@@ -314,15 +518,33 @@ class MemoryMeshCodingAgentService:
             ],
         }
 
-    def _task_contract(self, task: str, repository_name: str, files: list[str], relevant_paths: list[str]) -> dict[str, Any]:
+    def _run_outcome(self, *, task: str, patch_result: dict[str, Any], tests_after: CommandResult | None) -> str:
+        if patch_result.get("patched"):
+            return "passed" if tests_after and tests_after.exit_code == 0 else "needs_review"
+        profile_words = {"inspect", "profile", "receipt", "connect", "index", "map", "summarize", "summarise"}
+        if any(word in task.lower() for word in profile_words):
+            return "profiled"
+        return "handoff_ready"
+
+    def _final_message(self, outcome: str, project_profile: dict[str, Any], patch_result: dict[str, Any]) -> str:
+        if outcome == "passed":
+            return "MemoryMesh patched the connected project copy, reran tests, saved Cognee memory, and produced a recoverable engineering receipt."
+        if outcome == "profiled":
+            return f"MemoryMesh profiled the connected project ({project_profile.get('file_count', 0)} files), saved local Cognee memory, and prepared a Codex/Cursor handoff receipt."
+        if outcome == "handoff_ready":
+            return f"MemoryMesh inspected the connected project ({project_profile.get('file_count', 0)} files), avoided an unsafe guessed patch, and prepared a Codex/Cursor handoff receipt."
+        return "MemoryMesh inspected the connected project, saved local Cognee memory, and marked the run for review."
+
+    def _task_contract(self, task: str, repository_name: str, files: list[str], relevant_paths: list[str], project_profile: dict[str, Any]) -> dict[str, Any]:
         return {
             "kind": "task_contract",
             "task": task,
             "repository": repository_name,
-            "success_criteria": ["Non-admin users cannot access dashboard", "Admin users can access dashboard", "Tests pass after patch"],
-            "constraints": ["Do not store secrets", "Prefer central guard changes", "Use tests as source of truth"],
+            "success_criteria": ["Connected project is inspected", "Relevant files and test signal are captured", "A safe patch or Codex/Cursor handoff is produced"],
+            "constraints": ["Do not store secrets", "Prefer central guard changes when a safe patch is known", "Use tests as source of truth", "Do not guess unsafe patches"],
             "relevant_paths": relevant_paths,
             "file_count": len(files),
+            "project_profile": project_profile,
         }
 
     def _repo_map(self, repository_name: str, files: list[str], inspected: dict[str, str]) -> dict[str, Any]:

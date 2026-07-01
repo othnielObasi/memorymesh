@@ -80,10 +80,17 @@ class OpenAICompatibleGatewayService:
                 latency_ms = int((time.perf_counter() - started) * 1000)
                 attempts.append(GatewayAttempt(model=model, role=role, status="failed", latency_ms=latency_ms, error=str(exc)[:500]))
 
+        configured = [provider for _, provider, _, api_key, _ in self.route_chain() if api_key]
+        if configured:
+            guidance = f"Configured route failed: {', '.join(configured)}."
+        else:
+            guidance = "Set OPENAI_API_KEY to enable live LLM routing."
+            if self.settings.llm_fallback_provider:
+                guidance = "Set OPENAI_API_KEY and/or AIMLAPI_API_KEY to enable live LLM routing."
         return GatewayResult(
             content=(
                 "MemoryMesh local fallback response: no configured OpenAI-compatible provider completed the request. "
-                "Set OPENAI_API_KEY and/or AIMLAPI_API_KEY to enable live LLM routing."
+                f"{guidance}"
             ),
             provider="local-fallback-after-openai-compatible-errors",
             model="deterministic-local",

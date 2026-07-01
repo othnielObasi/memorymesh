@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import inspect
 import json
+import os
 from dataclasses import dataclass
 from typing import Any, Literal
+
+import httpx
 
 from app.config import Settings
 from app.db.postgres import DESCENDING, PostgresStore
@@ -40,6 +43,125 @@ class CogneeBackendStatus:
     fallback_allowed: bool
     import_error: str | None
     notes: list[str]
+
+
+class CogneeRestClient:
+    """Small Cognee Cloud HTTP client used when the optional SDK is unavailable."""
+
+    def __init__(self, *, base_url: str, api_key: str, timeout: float = 45.0):
+        self.base_url = base_url.rstrip("/")
+        self.api_key = api_key
+        self.timeout = timeout
+
+    @property
+    def headers(self) -> dict[str, str]:
+        return {
+            "X-Api-Key": self.api_key,
+            "Accept": "application/json",
+        }
+
+    async def health(self) -> Any:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/health", headers=self.headers)
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    async def auth_probe(self) -> Any:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(f"{self.base_url}/api/v1/datasets/", headers=self.headers)
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    async def remember(self, text: str, *, dataset_name: str, session_id: str | None = None) -> Any:
+        data = {
+            "datasetName": dataset_name,
+            "run_in_background": "false",
+        }
+        if session_id:
+            data["session_id"] = session_id
+        files = {"data": ("memorymesh-memory.txt", text.encode("utf-8"), "text/plain")}
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/remember",
+                headers=self.headers,
+                data=data,
+                files=files,
+            )
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    async def recall(self, query: str, *, datasets: list[str] | None = None, session_id: str | None = None, top_k: int = 5) -> Any:
+        payload: dict[str, Any] = {
+            "searchType": "GRAPH_COMPLETION",
+            "datasets": datasets or [],
+            "query": query,
+            "topK": top_k,
+            "onlyContext": False,
+            "verbose": False,
+        }
+        if session_id:
+            payload["sessionId"] = session_id
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/recall",
+                headers={**self.headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    async def improve(self, *, dataset: str, session_ids: list[str] | None = None) -> Any:
+        payload = {
+            "extractionTasks": [],
+            "enrichmentTasks": [],
+            "data": "",
+            "datasetName": dataset,
+            "nodeName": [],
+            "runInBackground": False,
+            "buildGlobalContextIndex": False,
+            "sessionIds": session_ids or [],
+        }
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/improve",
+                headers={**self.headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            if response.status_code == 404:
+                fallback_text = (
+                    "MemoryMesh improvement note: Cognee Cloud tenant does not expose /api/v1/improve yet. "
+                    f"Persist this improvement in graph memory for dataset={dataset}."
+                )
+                return await self.remember(
+                    fallback_text,
+                    dataset_name=dataset,
+                    session_id=session_ids[0] if session_ids else None,
+                )
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    async def forget(self, *, dataset: str, session_id: str | None = None, everything: bool = False) -> Any:
+        payload: dict[str, Any] = {
+            "everything": everything,
+        }
+        if not everything:
+            payload["dataset"] = dataset
+        if session_id:
+            payload["sessionId"] = session_id
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(
+                f"{self.base_url}/api/v1/forget",
+                headers={**self.headers, "Content-Type": "application/json"},
+                json=payload,
+            )
+            response.raise_for_status()
+            return self._json_or_text(response)
+
+    def _json_or_text(self, response: httpx.Response) -> Any:
+        try:
+            return response.json()
+        except ValueError:
+            return response.text
 
 
 class CogneeMemoryService:
@@ -79,7 +201,12 @@ class CogneeMemoryService:
         raw = aliases.get(raw, raw)
         if raw == "auto":
             if self.settings.cognee_enabled:
-                return "cognee_cloud" if (self.settings.cognee_service_url and self.settings.cognee_api_key) else "local_cognee"
+                if self.settings.cognee_service_url and self.settings.cognee_api_key:
+                    return "cognee_cloud"
+                environment = getattr(self.settings, "environment", "")
+                if self.settings.cognee_api_key and (os.getenv("VERCEL") or str(environment).lower() in {"production", "preview"}):
+                    return "cognee_cloud"
+                return "local_cognee"
             return "offline_mirror"
         if raw not in VALID_BACKENDS:
             return "offline_mirror"
@@ -114,11 +241,19 @@ class CogneeMemoryService:
             else:
                 ready = self._client is not None or self.settings.cognee_enabled or self.backend_override == "local_cognee"
         elif self.backend == "cognee_cloud":
-            notes.append("Uses cognee.serve() so remember/recall/improve/forget route to Cognee Cloud.")
+            notes.append("Uses Cognee Cloud through the SDK when available, otherwise the Cognee HTTP API.")
             if not (self.settings.cognee_service_url and self.settings.cognee_api_key):
                 notes.append("COGNEE_SERVICE_URL and COGNEE_API_KEY are required for live Cloud mode.")
             if probe:
-                ready = await self._get_client() is not None
+                client = await self._get_client()
+                ready = client is not None
+                auth_probe = getattr(client, "auth_probe", None)
+                if auth_probe is not None:
+                    try:
+                        await auth_probe()
+                    except Exception as exc:  # pragma: no cover - depends on external Cognee Cloud auth.
+                        ready = False
+                        self._import_error = str(exc)
             else:
                 ready = bool(self.settings.cognee_service_url and self.settings.cognee_api_key)
         else:
@@ -152,10 +287,7 @@ class CogneeMemoryService:
                     client.remember,
                     text,
                     dataset_name=dataset,
-                    datasetName=dataset,
-                    dataset=dataset,
                     session_id=session_id,
-                    metadata=metadata,
                 )
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
@@ -165,7 +297,7 @@ class CogneeMemoryService:
             error = str(exc)
 
         await self._persist_event(operation_id=operation_id, operation="remember", dataset=dataset, session_id=session_id, text=text, metadata=metadata, results=results, status=status, fallback_used=fallback_used, error=error)
-        return self._result(operation_id, "remember", dataset, session_id, status, text, results, fallback_used, error, client is not None)
+        return self._result(operation_id, "remember", dataset, session_id, status, text, results, fallback_used, error, client is not None and not fallback_used)
 
     async def recall(self, *, query: str, dataset: str, session_id: str | None = None, top_k: int = 5, metadata: dict[str, Any] | None = None) -> CogneeOperationResult:
         operation_id = new_id("cognee_recall")
@@ -180,15 +312,10 @@ class CogneeMemoryService:
                 status = "recalled_from_offline_mirror" if self.backend == "offline_mirror" else "recalled_with_offline_mirror"
                 results = await self._local_recall(query=query, dataset=dataset, session_id=session_id, top_k=top_k)
             else:
-                raw = await self._call_with_supported_kwargs(
-                    client.recall,
-                    query,
-                    dataset_name=dataset,
-                    datasetName=dataset,
-                    dataset=dataset,
-                    session_id=session_id,
-                    top_k=top_k,
-                )
+                recall_kwargs = {"session_id": session_id, "top_k": top_k}
+                if not session_id:
+                    recall_kwargs["datasets"] = [dataset]
+                raw = await self._call_with_supported_kwargs(client.recall, query, **recall_kwargs)
                 results = self._normalise_results(raw)
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
@@ -200,7 +327,7 @@ class CogneeMemoryService:
 
         content = "\n".join(str(item) for item in results) if results else "No memory found."
         await self._persist_event(operation_id=operation_id, operation="recall", dataset=dataset, session_id=session_id, text=query, metadata=metadata, results=results, status=status, fallback_used=fallback_used, error=error)
-        return self._result(operation_id, "recall", dataset, session_id, status, content, results, fallback_used, error, client is not None)
+        return self._result(operation_id, "recall", dataset, session_id, status, content, results, fallback_used, error, client is not None and not fallback_used)
 
     async def improve(self, *, feedback: str, dataset: str, session_id: str | None = None, metadata: dict[str, Any] | None = None) -> CogneeOperationResult:
         operation_id = new_id("cognee_improve")
@@ -219,13 +346,8 @@ class CogneeMemoryService:
                     raise RuntimeError("Configured Cognee client does not expose improve().")
                 await self._call_with_supported_kwargs(
                     improve_fn,
-                    feedback,
-                    dataset_name=dataset,
-                    datasetName=dataset,
                     dataset=dataset,
-                    session_id=session_id,
-                    feedback=feedback,
-                    metadata=metadata,
+                    session_ids=[session_id] if session_id else None,
                 )
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
             if not self.fallback_allowed:
@@ -235,7 +357,7 @@ class CogneeMemoryService:
             error = str(exc)
 
         await self._persist_event(operation_id=operation_id, operation="improve", dataset=dataset, session_id=session_id, text=feedback, metadata=metadata, results=results, status=status, fallback_used=fallback_used, error=error)
-        return self._result(operation_id, "improve", dataset, session_id, status, feedback, results, fallback_used, error, client is not None)
+        return self._result(operation_id, "improve", dataset, session_id, status, feedback, results, fallback_used, error, client is not None and not fallback_used)
 
     async def forget(self, *, dataset: str, session_id: str | None = None, everything: bool = False, metadata: dict[str, Any] | None = None) -> CogneeOperationResult:
         operation_id = new_id("cognee_forget")
@@ -265,7 +387,7 @@ class CogneeMemoryService:
 
         await self._mark_local_memory_forgotten(dataset=dataset, session_id=session_id, everything=everything)
         await self._persist_event(operation_id=operation_id, operation="forget", dataset=dataset, session_id=session_id, text="forget everything" if everything else f"forget dataset={dataset}", metadata=metadata, results=[], status=status, fallback_used=fallback_used, error=error)
-        return self._result(operation_id, "forget", dataset, session_id, status, "Memory deleted or pruned.", [], fallback_used, error, client is not None)
+        return self._result(operation_id, "forget", dataset, session_id, status, "Memory deleted or pruned.", [], fallback_used, error, client is not None and not fallback_used)
 
     async def _get_client(self) -> Any | None:
         if self.backend == "offline_mirror":
@@ -275,21 +397,20 @@ class CogneeMemoryService:
         if self.backend == "cognee_cloud" and not (self.settings.cognee_service_url and self.settings.cognee_api_key):
             self._import_error = "Cognee Cloud mode requires COGNEE_SERVICE_URL and COGNEE_API_KEY."
             return None
+        if self.backend == "cognee_cloud":
+            self._client = CogneeRestClient(
+                base_url=str(self.settings.cognee_service_url),
+                api_key=str(self.settings.cognee_api_key),
+                timeout=float(getattr(self.settings, "llm_timeout_seconds", 45)),
+            )
+            self._connected = True
+            self._import_error = None
+            return self._client
         try:
             import cognee  # type: ignore
         except Exception as exc:  # pragma: no cover - optional dependency
             self._import_error = str(exc)
             return None
-
-        if self.backend == "cognee_cloud":
-            serve = getattr(cognee, "serve", None)
-            if serve is None:
-                self._import_error = "Installed Cognee package does not expose cognee.serve()."
-                return None
-            client = await self._call_with_supported_kwargs(serve, url=self.settings.cognee_service_url, api_key=self.settings.cognee_api_key)
-            self._client = client or cognee
-            self._connected = True
-            return self._client
 
         self._client = cognee
         return self._client

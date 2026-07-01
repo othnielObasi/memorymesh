@@ -8,6 +8,8 @@ openai==1.59.7
 numpy==2.2.1
 orjson==3.10.13
 httpx==0.28.1
+python-multipart==0.0.22
 
-# Cognee hackathon memory layer (remember/recall/improve/forget)
-cognee
+# Cognee is optional for self-hosted/local mode because the current public package
+# does not resolve on Vercel's Python 3.12 runtime. Install requirements.local-cognee.txt
+# for private local deployments that run the Cognee SDK in-process.

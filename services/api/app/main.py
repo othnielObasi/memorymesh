@@ -17,7 +17,11 @@ store = PostgresStore(settings)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await store.connect()
+    app.state.startup_error = None
+    try:
+        await store.connect()
+    except Exception as exc:
+        app.state.startup_error = str(exc)
     yield
     await store.close()
 
@@ -56,6 +60,7 @@ async def health():
         'environment': settings.environment,
         'version': '2.1.0',
         'postgres_connected': connected,
+        'startup_error': getattr(app.state, 'startup_error', None),
     }
 
 

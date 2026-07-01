@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import List
 
@@ -66,6 +67,8 @@ class Settings(BaseSettings):
     cognee_api_key: str | None = Field(default=None, alias='COGNEE_API_KEY')
     cognee_default_dataset: str = Field(default='memorymesh-agent-work-memory', alias='COGNEE_DEFAULT_DATASET')
     cognee_allow_offline_fallback: bool = Field(default=True, alias='COGNEE_ALLOW_OFFLINE_FALLBACK')
+    memorymesh_local_project_roots: str = Field(default='', alias='MEMORYMESH_LOCAL_PROJECT_ROOTS')
+    memorymesh_allow_any_local_project: bool = Field(default=False, alias='MEMORYMESH_ALLOW_ANY_LOCAL_PROJECT')
 
     # Google/Gemini reference integration
     google_gemini_api_key: str | None = Field(default=None, alias='GOOGLE_GEMINI_API_KEY')
@@ -118,7 +121,11 @@ class Settings(BaseSettings):
         backend = aliases.get(backend, backend)
         if backend == 'auto':
             if self.cognee_enabled:
-                return 'cognee_cloud' if (self.cognee_service_url and self.cognee_api_key) else 'local_cognee'
+                if self.cognee_service_url and self.cognee_api_key:
+                    return 'cognee_cloud'
+                if self.cognee_api_key and (os.getenv('VERCEL') or self.environment.lower() in {'production', 'preview'}):
+                    return 'cognee_cloud'
+                return 'local_cognee'
             return 'offline_mirror'
         return backend if backend in {'local_cognee', 'cognee_cloud', 'offline_mirror'} else 'offline_mirror'
 

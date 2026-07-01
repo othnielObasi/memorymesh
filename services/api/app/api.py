@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
+import tempfile
+import zipfile
+from pathlib import Path
 from typing import Any
 from dataclasses import asdict
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from fastapi.responses import StreamingResponse
 from app.db.postgres import DESCENDING
 
@@ -584,6 +588,52 @@ async def cognee_memory_status(backend: str | None = None, probe: bool = False, 
     return asdict(status)
 
 
+@router.get('/memory/events')
+async def cognee_memory_events(
+    backend: str | None = None,
+    dataset: str | None = None,
+    session_id: str | None = None,
+    limit: int = 50,
+    svc=Depends(get_services),
+):
+    query: dict[str, Any] = {}
+    if backend:
+        query['backend'] = str(backend).strip()
+    if dataset:
+        query['dataset'] = str(dataset).strip()
+    if session_id:
+        query['session_id'] = str(session_id).strip()
+    rows = await svc['store'].find_many(
+        'cognee_memory_events',
+        query,
+        limit=max(1, min(int(limit or 50), 200)),
+        sort=[('created_at', DESCENDING)],
+    )
+    events = []
+    for row in rows:
+        text = str(row.get('text') or '')
+        events.append(
+            {
+                'id': row.get('_id') or row.get('id'),
+                'operation': row.get('operation'),
+                'provider': row.get('provider'),
+                'backend': row.get('backend'),
+                'dataset': row.get('dataset'),
+                'session_id': row.get('session_id'),
+                'status': row.get('status'),
+                'fallback_used': bool(row.get('fallback_used', False)),
+                'backend_ready': not bool(row.get('fallback_used', False)),
+                'error': row.get('error'),
+                'text_preview': text[:320],
+                'text_hash': row.get('text_hash'),
+                'metadata': row.get('metadata') or {},
+                'results_count': len(row.get('results') or []),
+                'created_at': row.get('created_at'),
+            }
+        )
+    return {'count': len(events), 'events': events}
+
+
 @router.post('/memory/remember')
 async def cognee_remember(payload: dict[str, Any], svc=Depends(get_services)):
     text = str(payload.get('text') or payload.get('data') or '').strip()
@@ -673,6 +723,7 @@ async def run_real_coding_agent(payload: dict[str, Any] | None = None, svc=Depen
             simulate_context_loss=bool(payload.get('simulate_context_loss', True)),
             run_tests=bool(payload.get('run_tests', True)),
             forget_after_run=bool(payload.get('forget_after_run', False)),
+            write_in_place=bool(payload.get('write_in_place', False)),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -687,9 +738,42 @@ async def run_production_agent(payload: dict[str, Any] | None = None, svc=Depend
             agent_id=str(payload.get('agent_id') or 'build'),
             task=str(payload.get('task') or payload.get('task_description') or ''),
             memory_backend=payload.get('backend') or payload.get('memory_backend'),
+            workspace_path=payload.get('workspace_path'),
+            repository_name=payload.get('repository_name'),
+            github_url=payload.get('github_url'),
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post('/projects/upload')
+async def upload_project_zip(file: UploadFile = File(...)):
+    if not file.filename or not file.filename.lower().endswith('.zip'):
+        raise HTTPException(status_code=422, detail='Upload a .zip project archive')
+    upload_root = Path(tempfile.gettempdir()) / 'memorymesh-workspaces' / 'uploads'
+    upload_root.mkdir(parents=True, exist_ok=True)
+    workspace = (upload_root / f"zip-{new_id('project')}").resolve()
+    workspace.mkdir(parents=True, exist_ok=False)
+    archive_path = workspace / 'project.zip'
+    try:
+        with archive_path.open('wb') as output:
+            shutil.copyfileobj(file.file, output)
+        with zipfile.ZipFile(archive_path) as archive:
+            for member in archive.infolist():
+                target = (workspace / member.filename).resolve()
+                if not str(target).startswith(str(workspace)):
+                    raise HTTPException(status_code=400, detail='Zip archive contains unsafe paths')
+            archive.extractall(workspace)
+        archive_path.unlink(missing_ok=True)
+        children = [child for child in workspace.iterdir() if child.name not in {'__MACOSX'}]
+        project_root = children[0] if len(children) == 1 and children[0].is_dir() else workspace
+        return {
+            'status': 'uploaded',
+            'repository_name': Path(file.filename).stem,
+            'workspace_path': str(project_root.resolve()),
+        }
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail='Invalid zip archive') from exc
 
 
 @router.post('/demo/coding-agent-recovery')

@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Cognee hackathon memory layer (remember/recall/improve/forget) for local/self-hosted mode.
+cognee

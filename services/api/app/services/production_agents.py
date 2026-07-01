@@ -27,37 +27,65 @@ class ProductionAgentRuntime:
         self.gateway = ModelGatewayRegistry(settings).get("openai_compatible")
         self.ticket_runner = AgentRunner(GovernanceService())
 
-    async def run(self, *, agent_id: str, task: str, memory_backend: str | None = None) -> dict[str, Any]:
+    async def run(
+        self,
+        *,
+        agent_id: str,
+        task: str,
+        memory_backend: str | None = None,
+        workspace_path: str | None = None,
+        repository_name: str | None = None,
+        github_url: str | None = None,
+    ) -> dict[str, Any]:
         agent = (agent_id or "build").strip().lower()
         if agent == "build":
-            return await self._run_build(task=task, memory_backend=memory_backend)
+            return await self._run_build(
+                task=task,
+                memory_backend=memory_backend,
+                workspace_path=workspace_path,
+                repository_name=repository_name,
+                github_url=github_url,
+            )
         if agent == "research":
             return await self._run_research(task=task, memory_backend=memory_backend)
         if agent == "support":
             return await self._run_support(task=task, memory_backend=memory_backend)
         raise ValueError(f"Unknown production agent: {agent_id}")
 
-    async def _run_build(self, *, task: str, memory_backend: str | None) -> dict[str, Any]:
+    async def _run_build(
+        self,
+        *,
+        task: str,
+        memory_backend: str | None,
+        workspace_path: str | None,
+        repository_name: str | None,
+        github_url: str | None,
+    ) -> dict[str, Any]:
         memory = self.memory.with_backend(memory_backend)
         agent = MemoryMeshCodingAgentService(self.store, memory, self.settings)
         result = await agent.run(
-            repository_name="sample-dashboard-service",
+            repository_name=repository_name or "sample-dashboard-service",
+            workspace_path=workspace_path,
+            github_url=github_url,
             task=task or "Fix dashboard access so only admins can open the dashboard and make the tests pass.",
             dataset="memorymesh-build-assistant",
             run_tests=True,
         )
         tool_trace = result.get("tool_trace", [])
         remembered = result.get("remembered", [])
+        outcome = result.get("outcome")
+        status = "complete" if result.get("tests_passed") or outcome in {"profiled", "handoff_ready"} else "needs_review"
         return await self._receipt(
             agent_id="build",
             agent_name="Build Assistant",
             task=task,
-            status="complete" if result.get("tests_passed") else "needs_review",
+            status=status,
             final_output=result.get("final_message", "Build Assistant completed the run."),
             evidence=[
                 {"label": "Tests before", "value": self._command_summary(result.get("tests_before"))},
                 {"label": "Tests after", "value": self._command_summary(result.get("tests_after"))},
                 {"label": "Files changed", "value": ", ".join(result.get("files_changed", [])) or "None reported"},
+                {"label": "Project profile", "value": self._profile_summary(result.get("project_profile", {}))},
             ],
             memory_operations=remembered + [result.get("recalled"), result.get("improved")],
             tool_traces=tool_trace,
@@ -68,8 +96,8 @@ class ProductionAgentRuntime:
             },
             outcome={
                 "summary": result.get("final_message", ""),
-                "actions": ["Review changed files", "Inspect test output", "Approve memory lesson"],
-                "receipt": "Build run includes file trace, tests-before/tests-after, Cognee memory operations, and recovery brief.",
+                "actions": result.get("recovery_brief", {}).get("next_actions") or ["Review changed files", "Inspect test output", "Approve memory lesson"],
+                "receipt": "Build run includes project profile, file trace, test signal, Cognee memory operations, recovery brief, and Codex/Cursor handoff.",
             },
             model_trace={"provider": "not_required_for_code_patch", "model": "tool_runtime"},
             raw=result,
@@ -276,3 +304,10 @@ class ProductionAgentRuntime:
             exit_code = getattr(result, "exit_code", None)
         output = stdout or stderr
         return f"exit={exit_code}; {output[-240:] if output else 'no output'}"
+
+    def _profile_summary(self, profile: dict[str, Any]) -> str:
+        if not profile:
+            return "No project profile returned"
+        stack = ", ".join(profile.get("likely_stack") or ["unknown"])
+        manifests = ", ".join((profile.get("manifests") or [])[:4]) or "none"
+        return f"{profile.get('file_count', 0)} files; stack={stack}; tests={profile.get('test_count', 0)}; manifests={manifests}"
