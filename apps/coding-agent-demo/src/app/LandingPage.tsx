@@ -161,10 +161,11 @@ interface PageShellProps {
   onEnterWorkspace: () => void;
   onSignIn: () => void;
   onGetStarted: () => void;
+  onOpenLocal: () => void;
   children: ReactNode;
 }
 
-function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetStarted, children }: PageShellProps) {
+function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetStarted, onOpenLocal, children }: PageShellProps) {
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
       <style>{`
@@ -210,6 +211,20 @@ function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetS
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={onEnterWorkspace}
+              className="hidden sm:block rounded-lg border border-primary/25 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              Demo
+            </button>
+            <button
+              type="button"
+              onClick={onOpenLocal}
+              className="hidden lg:block rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+            >
+              Local
+            </button>
+            <button
+              type="button"
               onClick={onSignIn}
               className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
             >
@@ -220,7 +235,7 @@ function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetS
               onClick={onGetStarted}
               className="flex items-center gap-1.5 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-all font-medium"
             >
-              Get started
+              Cloud
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -243,6 +258,12 @@ function PageShell({ currentPage, onNavigate, onEnterWorkspace, onSignIn, onGetS
           </button>
 
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <button type="button" onClick={onEnterWorkspace} className="hover:text-foreground transition-colors">
+              Demo
+            </button>
+            <button type="button" onClick={onOpenLocal} className="hover:text-foreground transition-colors">
+              Local
+            </button>
             {PAGE_LINKS.map(({ label, page }) => (
               <button
                 key={page}
@@ -280,6 +301,10 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
     window.scrollTo(0, 0);
   };
 
+  const openLocalConsole = () => {
+    window.location.assign('/?mode=local');
+  };
+
   if (currentPage !== 'home') {
     const pageProps = { onNavigate: navigate, onEnterWorkspace };
     const page = currentPage === 'product'
@@ -299,6 +324,7 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
         onEnterWorkspace={onEnterWorkspace}
         onSignIn={onSignIn}
         onGetStarted={onGetStarted}
+        onOpenLocal={openLocalConsole}
       >
         {page}
       </PageShell>
@@ -361,6 +387,20 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={onEnterWorkspace}
+              className="hidden sm:block rounded-lg border border-primary/25 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
+            >
+              Demo
+            </button>
+            <button
+              type="button"
+              onClick={openLocalConsole}
+              className="hidden lg:block rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+            >
+              Local
+            </button>
+            <button
+              type="button"
               onClick={onSignIn}
               className="hidden sm:block text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
             >
@@ -371,7 +411,7 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
               onClick={onGetStarted}
               className="flex items-center gap-1.5 text-sm bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-all font-medium"
             >
-              Get started
+              Cloud
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -431,14 +471,22 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
                   onClick={onGetStarted}
                   className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 rounded-lg font-medium hover:bg-primary/90 transition-all text-sm"
                 >
-                  Start for free
+                  Start cloud
                   <ArrowRight className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => navigate('product')}
+                  type="button"
+                  onClick={onEnterWorkspace}
+                  className="inline-flex items-center gap-2 text-sm text-primary border border-primary/30 px-6 py-3 rounded-lg font-medium hover:bg-primary/8 transition-all"
+                >
+                  Try demo
+                </button>
+                <button
+                  type="button"
+                  onClick={openLocalConsole}
                   className="inline-flex items-center gap-2 text-sm text-muted-foreground border border-border px-6 py-3 rounded-lg font-medium hover:text-foreground hover:border-foreground/15 transition-all"
                 >
-                  Learn more
+                  Local console
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>
@@ -719,7 +767,7 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
 
                 <button
                   type="button"
-                  onClick={isCloud ? onGetStarted : onEnterWorkspace}
+                  onClick={isCloud ? onGetStarted : loc.title === 'Local memory' ? openLocalConsole : onEnterWorkspace}
                   className={`w-full py-2.5 rounded-lg text-sm font-medium transition-all ${
                     loc.highlight
                       ? 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -825,8 +873,14 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
               onClick={onEnterWorkspace}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-8 py-4 rounded-xl font-medium hover:bg-primary/90 transition-all text-base"
             >
-              Open workspace
+              Try demo
               <ArrowRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={openLocalConsole}
+              className="inline-flex items-center gap-2 text-sm text-muted-foreground border border-border px-6 py-4 rounded-xl hover:text-foreground hover:border-foreground/15 transition-all"
+            >
+              Open local console
             </button>
             <button
               onClick={() => navigate('docs')}
@@ -852,6 +906,12 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
           </div>
 
           <div className="flex items-center gap-6 text-xs text-muted-foreground">
+            <button type="button" onClick={onEnterWorkspace} className="hover:text-foreground transition-colors">
+              Demo
+            </button>
+            <button type="button" onClick={openLocalConsole} className="hover:text-foreground transition-colors">
+              Local
+            </button>
             {PAGE_LINKS.map(({ label, page }) => (
               <button
                 key={page}
