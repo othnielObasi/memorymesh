@@ -313,7 +313,7 @@ async function callTool(name, args) {
 const server = new Server(
   {
     name: "memorymesh-mcp-server",
-    version: "0.1.0",
+    version: "0.1.1",
   },
   {
     capabilities: {

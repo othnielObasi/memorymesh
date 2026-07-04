@@ -1,113 +1,139 @@
 # SDK Integration
 
-MemoryMesh includes Python and TypeScript SDKs so developers can build their own agents on the infrastructure layer without calling HTTP endpoints manually.
-
----
-
-## Python SDK
-
-Location:
+MemoryMesh ships SDKs and an MCP server so teams can add durable work memory to agents they already use. The SDKs are not just HTTP wrappers. They expose the product loop:
 
 ```text
-packages/sdk-python/memorymesh
+connect -> run/trace -> remember -> recall -> checkpoint -> recover -> receipt
 ```
 
-Key methods:
+Published packages:
 
-```python
-start_run(agent_id, task, dataset_type="support_tickets", **kwargs)
-record_event(task_id, code, payload=None)
-record_tool_trace(task_id, tool, input, output, validation=None)
-save_checkpoint(task_id, checkpoint_name, state, metadata=None)
-restore_checkpoint(checkpoint_id)
-modify_task(task_id, new_task_description, modification, parent_checkpoint_id=None)
-approve_memory(task_id, rule, applies_to, confidence=0.8, evidence=None)
-list_events(task_id)
-generate_plan(task, run_events=None, checkpoint_id=None, task_version=1)
-synthesize_run_summary(text, voice_id=None, run_id=None, checkpoint_id=None)
-partner_status()
-```
+| Package | Registry | Use when |
+| --- | --- | --- |
+| `@memorymsh/sdk` | npm | Node.js apps, browser UIs, TypeScript workers, custom agent runtimes. |
+| `memorymesh-sdk` | PyPI | Python workers, notebooks, backend jobs, LangGraph/CrewAI/OpenAI Agents-style integrations. |
+| `@memorymsh/mcp-server` | npm | MCP-capable clients that should recall and save MemoryMesh context without custom code. |
 
-Example:
+## Memory Backends
 
-```python
-from memorymesh import MemoryMeshClient
+Every integration should make the memory backend explicit.
 
-client = MemoryMeshClient(base_url="http://localhost:8000")
-run = client.start_run("demo-agent", "Investigate unresolved tickets")
-client.record_event(run["task_id"], "plan_prepared", {"plan": ["fetch", "checkpoint", "summarise"]})
-```
+| Backend | Meaning |
+| --- | --- |
+| `local_cognee` | Self-hosted/local Cognee service. Use for private developer or enterprise deployments. |
+| `cognee_cloud` | Managed Cognee Cloud. Use when teams want zero memory infrastructure. |
+| `offline_mirror` | PostgreSQL-backed fallback for demos/tests and Cognee downtime. |
 
----
+## Auth Model
 
-## TypeScript SDK
+The SDKs support both MemoryMesh API-key deployments and signed user-session deployments.
 
-Location:
+| Credential style | Header |
+| --- | --- |
+| API key | `X-MemoryMesh-API-Key` |
+| Signed session / bearer token | `Authorization: Bearer <token>` |
 
-```text
-packages/sdk-typescript/src
-```
-
-Key methods mirror the Python SDK:
+TypeScript:
 
 ```ts
-startRun(input)
-recordEvent(taskId, code, payload)
-recordToolTrace(taskId, trace)
-saveCheckpoint(taskId, checkpoint)
-restoreCheckpoint(checkpointId)
-modifyTask(taskId, input)
-approveMemory(taskId, input)
-listEvents(taskId)
-generatePlan(input)
-synthesizeRunSummary(input)
-partnerStatus()
-```
-
-Example:
-
-```ts
-import { MemoryMeshClient } from "@memorymesh/sdk";
-
-const client = new MemoryMeshClient({ baseUrl: "http://localhost:8000" });
-const run = await client.startRun({
-  agentId: "ticket-agent",
-  task: "Investigate support tickets",
-  datasetType: "support_tickets",
+const client = new MemoryMeshClient({
+  baseUrl: process.env.MEMORYMESH_API_URL!,
+  apiKey: process.env.MEMORYMESH_SESSION_TOKEN,
+  apiKeyHeader: "Authorization",
 });
 ```
 
----
-
-## Adapter Strategy
-
-Framework adapters should translate framework lifecycle events into MemoryMesh run events:
-
-| Framework event | MemoryMesh event |
-|---|---|
-| graph invoked | `request_received` |
-| planner node output | `plan_prepared` |
-| tool node start | `tool_execution_started` |
-| tool node output | `trace_recorded` |
-| durable boundary | `checkpoint_saved` |
-| graph resumed | `checkpoint_restored` |
-| human changes task | `task_modified` |
-
-
----
-
-## Production SDK primitives
-
-The SDKs now expose production-oriented primitives:
-
-### Python
+Python:
 
 ```python
-run = tm.start_run(agent_id="claims-agent", task="Investigate claim docs")
+client = MemoryMeshClient(
+    base_url=os.environ["MEMORYMESH_API_URL"],
+    api_key=os.environ["MEMORYMESH_SESSION_TOKEN"],
+    api_key_header="Authorization",
+)
+```
 
-tm.record_event(run["task_id"], code="plan_prepared")
+## TypeScript Quick Start
 
-tm.record_tool_trace(
+```ts
+import { MemoryMeshClient } from "@memorymsh/sdk";
+
+const client = new MemoryMeshClient({
+  baseUrl: process.env.MEMORYMESH_API_URL ?? "https://api-two-blue-75.vercel.app",
+  apiKey: process.env.MEMORYMESH_API_KEY,
+  defaultMemoryBackend: "cognee_cloud",
+});
+
+const receipt = await client.runAgent({
+  agentId: "research",
+  task: "Compare durable memory options for coding agents.",
+  backend: "cognee_cloud",
+});
+
+console.log(receipt.run_id);
+console.log(receipt.final_output);
+console.log(receipt.receipt_ref);
+```
+
+## Python Quick Start
+
+```python
+import os
+
+from memorymesh import MemoryMeshClient
+
+client = MemoryMeshClient(
+    base_url=os.environ.get("MEMORYMESH_API_URL", "https://api-two-blue-75.vercel.app"),
+    api_key=os.environ.get("MEMORYMESH_API_KEY"),
+    default_memory_backend="cognee_cloud",
+)
+
+receipt = client.run_agent(
+    agent_id="support",
+    task="Investigate high-priority unresolved tickets.",
+    backend="cognee_cloud",
+)
+
+print(receipt["run_id"])
+print(receipt["final_output"])
+print(receipt["receipt_ref"])
+```
+
+## Memory Lifecycle
+
+Use the same dataset, session id, and backend across `remember`, `recall`, `improve`, and `forget`.
+
+```ts
+await client.remember({
+  text: "The build agent must preserve test contracts before editing auth code.",
+  dataset: "engineering-lessons",
+  sessionId: "auth-work-001",
+});
+
+const memory = await client.recall({
+  query: "What should the build agent remember before editing auth code?",
+  dataset: "engineering-lessons",
+  sessionId: "auth-work-001",
+  topK: 3,
+});
+
+await client.improveMemory({
+  feedback: "Future auth tasks should verify tenant isolation and idempotency tests first.",
+  dataset: "engineering-lessons",
+  sessionId: "auth-work-001",
+});
+```
+
+## Tool Traces and Checkpoints
+
+Tool traces answer: what did the agent do, with what input, what output, and what validation?
+
+Checkpoints answer: where can the agent safely resume after interruption?
+
+```python
+run = client.start_run(agent_id="claims-agent", task="Investigate claim documents")
+
+client.record_tool_trace(
     run["task_id"],
     tool="fetch_documents",
     input={"query": "claim evidence"},
@@ -116,44 +142,15 @@ tm.record_tool_trace(
     validation={"passed": True},
 )
 
-checkpoint = tm.save_checkpoint(
+checkpoint = client.save_checkpoint(
     run["task_id"],
     checkpoint_name="retrieval-complete",
     state={"records_seen": 120},
     resume_state={"current_step": "summarise", "validated_records": 120},
 )
-
-restored = tm.restore_checkpoint(checkpoint["checkpoint_id"])
 ```
 
-### npm
-
-```ts
-const run = await tm.startRun({ agentId: "claims-agent", task: "Investigate claim docs" });
-
-await tm.recordEvent(run.task_id, "plan_prepared");
-
-await tm.recordToolTrace(run.task_id, {
-  tool: "fetch_documents",
-  input: { query: "claim evidence" },
-  output: { records: 120 },
-  observedSignals: { complete: true },
-  validation: { passed: true },
-});
-
-const checkpoint = await tm.saveCheckpoint(run.task_id, {
-  checkpointName: "retrieval-complete",
-  state: { recordsSeen: 120 },
-  resumeState: { currentStep: "summarise", validatedRecords: 120 },
-});
-
-const restored = await tm.restoreCheckpoint(checkpoint.checkpoint_id);
-```
-
-
-## Framework adapters
-
-MemoryMesh includes SDK-level adapters so developers do not need to manually record every primitive in common agent runtimes.
+## Framework Adapters
 
 Implemented adapters:
 
@@ -166,4 +163,37 @@ Implemented adapters:
 - npm OpenAI Agents SDK-style middleware: `MemoryMeshOpenAIAgentsMiddleware`
 - npm generic tool wrapper: `wrapTool`
 
-See [`FRAMEWORK_ADAPTERS.md`](FRAMEWORK_ADAPTERS.md) for full examples.
+Use adapters when a framework owns the agent lifecycle. Use `trace_tool` or `wrapTool` when you want the smallest custom integration.
+
+## MCP Server
+
+For MCP-capable clients:
+
+```json
+{
+  "mcpServers": {
+    "memorymesh": {
+      "command": "npx",
+      "args": ["-y", "@memorymsh/mcp-server"],
+      "env": {
+        "MM_API_URL": "https://api-two-blue-75.vercel.app/api",
+        "MM_MEMORY_BACKEND": "cognee_cloud",
+        "MM_PROJECT": "current-repo"
+      }
+    }
+  }
+}
+```
+
+The MCP server exposes status, session creation, remember, recall, improve, forget, run-agent, and session-summary tools.
+
+## Adoption Checklist
+
+1. Start with `memory_status(..., probe=True)` or `memoryStatus(..., true)`.
+2. Choose the memory backend intentionally.
+3. Use one dataset per product/project/domain.
+4. Use session ids for task-scoped memory.
+5. Wrap important tools so traces and checkpoints are recorded.
+6. Use idempotency keys for write/external actions.
+7. Return or store the run receipt for audit and handoff.
+8. Forget temporary or sensitive sessions when the job is complete.

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "memorymesh-sdk"
-version = "0.1.0"
+version = "0.1.1"
 description = "MemoryMesh SDK for durable runtime memory, checkpoints, recovery, and adapters for agent frameworks."
 readme = "README.md"
 requires-python = ">=3.10"

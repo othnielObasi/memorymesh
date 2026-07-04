@@ -136,6 +136,8 @@ export interface AgentRunReceipt {
   outcome: Record<string, unknown>;
   model_trace: Record<string, unknown>;
   created_at: string;
+  receipt?: AgentRunReceipt;
+  receipt_ref?: string | null;
   raw?: Record<string, unknown>;
 }
 

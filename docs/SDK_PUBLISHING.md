@@ -1,9 +1,10 @@
 # Publishable SDK Plan
 
-MemoryMesh ships two first-class SDKs:
+MemoryMesh ships two first-class SDKs and one MCP connector:
 
 - TypeScript: `@memorymsh/sdk`
 - Python distribution: `memorymesh-sdk` with Python import package `memorymesh`
+- MCP server: `@memorymsh/mcp-server`
 
 Both SDKs expose the same product loop:
 
@@ -19,13 +20,16 @@ Before publishing either SDK:
 
 ```bash
 npm --workspace @memorymesh/sdk run build
+npm --workspace @memorymsh/sdk run build
+npm --workspace @memorymsh/mcp-server run build
 python -m compileall packages/sdk-python/memorymesh
 ```
 
 Recommended package checks:
 
 ```bash
-npm --workspace @memorymesh/sdk pack --dry-run
+npm --workspace @memorymsh/sdk pack --dry-run
+npm --workspace @memorymsh/mcp-server pack --dry-run
 cd packages/sdk-python
 python -m build
 twine check dist/*

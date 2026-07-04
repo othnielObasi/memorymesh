@@ -1,6 +1,6 @@
 {
   "name": "@memorymsh/mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server that connects Cursor, Claude Code, OpenCode, OpenClaw-compatible clients, Codex wrappers, and custom agents to MemoryMesh durable work memory.",
   "type": "module",
   "bin": {
