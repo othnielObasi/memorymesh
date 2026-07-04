@@ -5,7 +5,6 @@ import {
   Brain,
   CheckCircle2,
   ChevronRight,
-  Clock,
   Code2,
   KeyRound,
   Package,
@@ -23,150 +22,214 @@ interface Props {
 
 type SectionKey = 'quick' | 'mcp' | 'api' | 'sdk' | 'memory' | 'security';
 
+type DocSection = {
+  id: string;
+  icon: typeof Zap;
+  color: string;
+  title: string;
+  shortTitle: string;
+  summary: string;
+  goal: string;
+  useWhen: string[];
+  doThis: string[];
+  verify: string[];
+};
+
 const SECTION_ORDER: SectionKey[] = ['quick', 'mcp', 'api', 'sdk', 'memory', 'security'];
 
-const SECTIONS: Record<
-  SectionKey,
-  {
-    icon: typeof Zap;
-    color: string;
-    title: string;
-    shortTitle: string;
-    summary: string;
-    outcome: string;
-    details: string[];
-    verify: string;
-    id: string;
-  }
-> = {
+const SECTIONS: Record<SectionKey, DocSection> = {
   quick: {
+    id: 'docs-quick-start',
     icon: Zap,
     color: '#818cf8',
     title: 'Quick start',
     shortTitle: 'Quick start',
-    summary: 'Run a real demo, inspect the receipt, then choose Demo, Local, or Cloud memory.',
-    outcome: 'In five minutes, a developer should know what MemoryMesh does, how memory is stored, and how a run can be verified.',
-    details: [
-      'Use demo memory first. It requires no login and proves the workflow without setup.',
-      'Run Build, Research, or Support so the output is a receipt, not a disposable chat answer.',
-      'Inspect run_id, receipt_ref, memory_operations, evidence, checkpoints, and final_output.',
-      'Move to local_cognee for private self-hosting or cognee_cloud for managed shared memory.',
+    summary: 'Choose demo, local, or cloud memory, then run one receipt-backed agent flow.',
+    goal: 'Get from zero to a verified MemoryMesh run without guessing which mode or package to use.',
+    useWhen: [
+      'You are evaluating MemoryMesh for the first time.',
+      'You need to show a team how agent memory becomes a reusable receipt.',
+      'You want to decide between temporary demo memory, private local memory, or managed cloud memory.',
     ],
-    verify: 'A useful first run returns final_output plus memory_operations and receipt_ref.',
-    id: 'docs-quick-start',
+    doThis: [
+      'Run the demo first if you want a no-login preview.',
+      'Use local memory when project context must stay inside your machine or network.',
+      'Use cloud memory when a team needs shared, managed memory and API keys.',
+      'After the first run, inspect final_output, receipt_ref, memory_operations, evidence, and checkpoints.',
+    ],
+    verify: [
+      'A successful run returns a final answer plus receipt_ref.',
+      'The receipt includes the memory backend used for the run.',
+      'A second run can recall prior context instead of starting from zero.',
+    ],
   },
   mcp: {
+    id: 'docs-mcp',
     icon: Terminal,
     color: '#22d3ee',
     title: 'MCP integration',
     shortTitle: 'MCP setup',
-    summary: 'Connect Cursor, OpenCode, or any MCP-compatible client through the MemoryMesh MCP server.',
-    outcome: 'Existing agents can call MemoryMesh tools without replacing their runtime.',
-    details: [
-      'Run @memorymsh/mcp-server through npx from the host agent.',
-      'Point MM_API_URL at your MemoryMesh API and include /api.',
-      'Use MM_API_KEY_HEADER=X-MemoryMesh-API-Key for service keys or Authorization for bearer sessions.',
-      'Call memorymesh_status before relying on recall, remember, improve, forget, or run_agent.',
+    summary: 'Connect Cursor, OpenCode, Claude, or another MCP-compatible host to MemoryMesh.',
+    goal: 'Let existing coding agents use durable memory without replacing the tool developers already work in.',
+    useWhen: [
+      'Your agent host supports MCP tools.',
+      'You want MemoryMesh available inside Cursor, OpenCode, Claude, or a custom MCP client.',
+      'You need recall, remember, improve, forget, and run receipts from the host agent.',
     ],
-    verify: 'The MCP client should list memorymesh_status, memorymesh_recall, memorymesh_remember, and memorymesh_run_agent.',
-    id: 'docs-mcp',
+    doThis: [
+      'Install @memorymsh/mcp-server through npx in the host MCP config.',
+      'Set MM_API_URL to the MemoryMesh API base including /api.',
+      'Pass MM_API_KEY with MM_API_KEY_HEADER=X-MemoryMesh-API-Key for service access.',
+      'Call memorymesh_status before depending on memorymesh_recall or memorymesh_run_agent.',
+    ],
+    verify: [
+      'The MCP client lists memorymesh_status, memorymesh_remember, memorymesh_recall, memorymesh_improve, memorymesh_forget, and memorymesh_run_agent.',
+      'memorymesh_status returns the selected backend and readiness.',
+      'A host-agent task creates a receipt instead of only a chat answer.',
+    ],
   },
   api: {
+    id: 'docs-api',
     icon: Code2,
     color: '#34d399',
     title: 'REST API',
     shortTitle: 'API reference',
-    summary: 'Use HTTP endpoints for custom agents, internal services, tenants, API keys, and receipts.',
-    outcome: 'A backend team should be able to create a tenant, issue a scoped key, call MemoryMesh, and audit the result.',
-    details: [
-      'POST /api/enterprise/bootstrap creates the first organisation, workspace, project, and owner API key.',
-      'POST /api/enterprise/api-keys creates additional hashed keys with role-based scopes.',
-      'Use X-MemoryMesh-API-Key by default. Bearer session tokens are accepted through Authorization.',
-      'Store receipt_ref with the external job, ticket, PR, or workflow that triggered the agent.',
+    summary: 'Use HTTP endpoints for tenants, API keys, memory operations, agent runs, and receipts.',
+    goal: 'Give backend teams a clear, auditable way to wire MemoryMesh into products, internal tools, and agent workers.',
+    useWhen: [
+      'You are building your own integration instead of using an SDK.',
+      'You need tenant-aware API keys and service-to-service calls.',
+      'You want receipts and memory operations stored next to tickets, PRs, jobs, or workflow runs.',
     ],
-    verify: 'GET /api/enterprise/context should return the resolved tenant, role, scopes, and auth mode.',
-    id: 'docs-api',
+    doThis: [
+      'Bootstrap the first organisation, workspace, project, and owner key with /api/enterprise/bootstrap.',
+      'Create scoped service keys with /api/enterprise/api-keys.',
+      'Send keys with X-MemoryMesh-API-Key. Use Authorization only for bearer sessions.',
+      'Store receipt_ref on the external object that triggered the run.',
+    ],
+    verify: [
+      'GET /api/enterprise/context resolves the tenant, role, scopes, and auth mode.',
+      'Invalid keys return 401 and missing scopes return 403.',
+      'Each run response includes a stable identifier that can be audited later.',
+    ],
   },
   sdk: {
+    id: 'docs-sdks',
     icon: Package,
     color: '#f59e0b',
     title: 'SDKs',
     shortTitle: 'SDKs',
-    summary: 'Use TypeScript, Python, or MCP packages instead of hand-writing integration code.',
-    outcome: 'Developers should know which package to install, how it authenticates, and how to record memory operations.',
-    details: [
-      '@memorymsh/sdk is for TypeScript, JavaScript, Node services, and web apps.',
-      'memorymesh-sdk is for Python workers, notebooks, backend services, and agent frameworks.',
-      '@memorymsh/mcp-server is for host tools that already support MCP.',
-      'Both SDKs default to X-MemoryMesh-API-Key and can switch to Authorization when needed.',
+    summary: 'Use TypeScript, Python, or MCP packages instead of hand-writing boilerplate.',
+    goal: 'Help developers adopt MemoryMesh in the language and agent runtime they already use.',
+    useWhen: [
+      'You are integrating a TypeScript app, Node service, Python worker, notebook, or agent framework.',
+      'You want typed helpers for health checks, memory status, agent runs, remember, recall, and tool tracing.',
+      'You need consistent error handling across teams.',
     ],
-    verify: 'A working SDK call should pass health(), memoryStatus(), runAgent(), remember(), and recall().',
-    id: 'docs-sdks',
+    doThis: [
+      'Use @memorymsh/sdk for TypeScript and JavaScript.',
+      'Use memorymesh-sdk for Python.',
+      'Use @memorymsh/mcp-server for MCP hosts.',
+      'Run health() and memoryStatus() before production workflows.',
+    ],
+    verify: [
+      'health() confirms the API is reachable.',
+      'memoryStatus() confirms the backend is ready.',
+      'runAgent(), remember(), and recall() return structured responses, not plain strings.',
+    ],
   },
   memory: {
+    id: 'docs-memory',
     icon: Brain,
     color: '#c084fc',
     title: 'Memory concepts',
     shortTitle: 'Memory concepts',
-    summary: 'Understand backends, datasets, sessions, operations, and Cognee-backed recall.',
-    outcome: 'A developer should understand where memory lives and how an agent uses it across sessions.',
-    details: [
-      'local_cognee keeps memory on self-hosted infrastructure.',
-      'cognee_cloud uses managed Cognee Cloud for persistent organisation memory.',
-      'offline_mirror is for demos, tests, and fallback when Cognee is unavailable.',
-      'Datasets and session_id keep memory scoped to a repo, customer, workflow, or investigation.',
+    summary: 'Understand what MemoryMesh adds on top of Cognee-backed memory.',
+    goal: 'Make memory understandable as a product surface: where it lives, how it is scoped, and how agents reuse it.',
+    useWhen: [
+      'You need to explain demo, local, and cloud memory to a technical team.',
+      'You are deciding how to scope memory by repo, customer, session, workflow, or investigation.',
+      'You want Cognee memory, but with developer-friendly receipts, run state, and agent workflow controls.',
     ],
-    verify: 'memory_status(backend, probe=true) should report readiness before production use.',
-    id: 'docs-memory',
+    doThis: [
+      'Use offline_mirror for demo and test flows.',
+      'Use local_cognee for self-hosted private memory.',
+      'Use cognee_cloud for managed team memory.',
+      'Keep dataset and session_id stable enough for recall, but do not put secrets inside them.',
+    ],
+    verify: [
+      'A memory probe reports the configured backend.',
+      'Recall returns relevant records for the active dataset and session.',
+      'Receipts show what was remembered, recalled, improved, or forgotten.',
+    ],
   },
   security: {
+    id: 'docs-security',
     icon: Shield,
     color: '#34d399',
     title: 'Privacy & security',
     shortTitle: 'Privacy',
-    summary: 'Know how MemoryMesh handles tenant context, keys, roles, scopes, and private memory modes.',
-    outcome: 'Security teams should see how access is controlled and how sensitive work can stay private.',
-    details: [
-      'API keys are never stored raw; the backend stores an HMAC hash using the signing secret.',
-      'Roles map to scopes such as runs:write, memory:read, tools:execute, gateways:read, and admin:manage.',
-      'Signed user sessions use mms_ tokens and can be sent through Authorization.',
-      'Local memory lets sensitive project context stay inside your network.',
+    summary: 'Control tenant boundaries, API keys, roles, scopes, and private memory modes.',
+    goal: 'Give security and platform teams confidence that MemoryMesh can be used without leaking project context.',
+    useWhen: [
+      'You are preparing a team or enterprise deployment.',
+      'You need service keys for CI, IDE agents, support workers, or internal apps.',
+      'You need private memory for sensitive repositories or customer investigations.',
     ],
-    verify: 'Invalid keys return 401, missing scopes return 403, and audit logs record key and tenant actions.',
-    id: 'docs-security',
+    doThis: [
+      'Create scoped API keys for each integration instead of reusing an owner key.',
+      'Rotate keys from the enterprise API when a tool or developer changes access.',
+      'Use local_cognee for private self-hosted memory.',
+      'Treat receipt_ref as the audit pointer for every external workflow.',
+    ],
+    verify: [
+      'API keys are stored as hashes and only shown once at creation.',
+      'Role scopes restrict memory, run, tool, and admin operations.',
+      'Audit data records key creation, tenant context, and run receipts.',
+    ],
   },
 };
 
-const QUICK_START_STEPS = [
+const ADOPTION_PATHS = [
   {
-    step: '01',
-    title: 'Run demo memory',
-    desc: 'Open the demo workspace without login. It should create a real run receipt using temporary sample memory.',
-    time: '< 1 min',
+    name: 'Demo memory',
+    badge: 'No login',
+    result: 'A temporary run receipt with sample memory.',
+    bestFor: 'Judges, evaluators, and first-time users.',
+    next: 'Move to local or cloud after the workflow makes sense.',
   },
   {
-    step: '02',
-    title: 'Choose an agent',
-    desc: 'Use Build for code work, Research for source-backed findings, or Support for ticket-style investigation.',
-    time: '< 1 min',
+    name: 'Local memory',
+    badge: 'Private',
+    result: 'Self-hosted local_cognee memory for one machine or private network.',
+    bestFor: 'Developers working on sensitive repositories or internal tools.',
+    next: 'Connect a local project and run an agent with recall enabled.',
   },
   {
-    step: '03',
-    title: 'Inspect the receipt',
-    desc: 'Check final_output, evidence, memory_operations, checkpoints, run_id, and receipt_ref.',
-    time: '~30 sec',
+    name: 'Cloud memory',
+    badge: 'Team',
+    result: 'Managed cognee_cloud memory with tenant API keys.',
+    bestFor: 'Teams that need shared memory, backups, and service integrations.',
+    next: 'Bootstrap an organisation and create scoped API keys.',
+  },
+];
+
+const FIRST_RUN_CONTRACT = [
+  {
+    label: 'Choose',
+    value: 'Pick demo, local, or cloud memory before selecting an agent.',
   },
   {
-    step: '04',
-    title: 'Pick a memory backend',
-    desc: 'Use local_cognee for private self-hosting, cognee_cloud for managed memory, or offline_mirror for demos.',
-    time: '2 min',
+    label: 'Run',
+    value: 'Execute Build, Research, or Support against a concrete task.',
   },
   {
-    step: '05',
-    title: 'Connect your own agent',
-    desc: 'Install the SDK or MCP server so your existing agent can recall, remember, improve, forget, and produce receipts.',
-    time: '5 min',
+    label: 'Review',
+    value: 'Read the answer beside its receipt, evidence, memory operations, and checkpoints.',
+  },
+  {
+    label: 'Reuse',
+    value: 'Run a follow-up task and confirm previous context is recalled instead of recreated.',
   },
 ];
 
@@ -187,7 +250,7 @@ const MCP_SNIPPET = `{
   }
 }`;
 
-const API_KEY_SNIPPET = `// 1. Bootstrap the first tenant and owner key.
+const API_KEY_SNIPPET = `// Bootstrap the first tenant and owner key.
 await fetch("https://api-two-blue-75.vercel.app/api/enterprise/bootstrap", {
   method: "POST",
   headers: {
@@ -197,7 +260,7 @@ await fetch("https://api-two-blue-75.vercel.app/api/enterprise/bootstrap", {
   body: JSON.stringify({ name: "Acme", slug: "acme" })
 });
 
-// 2. Use the returned owner key to create scoped service keys.
+// Use the returned owner key to create scoped service keys.
 await fetch("https://api-two-blue-75.vercel.app/api/enterprise/api-keys", {
   method: "POST",
   headers: {
@@ -229,6 +292,9 @@ const client = new MemoryMeshClient({
   defaultMemoryBackend: "cognee_cloud"
 });
 
+await client.health();
+await client.memoryStatus("cognee_cloud", true);
+
 const receipt = await client.runAgent({
   agentId: "research",
   task: "Compare durable memory options for coding agents.",
@@ -236,6 +302,7 @@ const receipt = await client.runAgent({
 });
 
 console.log(receipt.final_output);
+console.log(receipt.receipt_ref);
 console.log(receipt.memory_operations);`;
 
 const PY_SDK_SNIPPET = `from memorymesh import MemoryMeshClient
@@ -246,6 +313,9 @@ client = MemoryMeshClient(
     default_memory_backend="cognee_cloud",
 )
 
+client.health()
+client.memory_status("cognee_cloud", probe=True)
+
 receipt = client.run_agent(
     agent_id="support",
     task="Investigate unresolved support tickets.",
@@ -253,7 +323,7 @@ receipt = client.run_agent(
 )
 
 print(receipt["final_output"])
-print(receipt["memory_operations"])`;
+print(receipt["receipt_ref"])`;
 
 const MEMORY_SNIPPET = `await client.remember({
   text: "The build agent should preserve project constraints before editing.",
@@ -300,56 +370,57 @@ try {
   }
 }`;
 
-const CHANGELOG = [
-  { date: '2026-07-04', tag: 'new', text: 'Published TypeScript SDK, Python SDK, and MCP server packages.' },
-  { date: '2026-07-04', tag: 'improved', text: 'Documented API-key, bearer-session, and memory-backend usage.' },
-  { date: '2026-07-04', tag: 'new', text: 'Added receipt-first examples for REST, SDK, MCP, and tool tracing.' },
+const INTEGRATION_ORDER = [
+  'Pick a memory mode: demo, local_cognee, or cognee_cloud.',
+  'Verify the API with health() and memoryStatus().',
+  'Connect MCP, SDK, or REST from the host agent.',
+  'Run one task and store receipt_ref beside the external job.',
+  'Use recall in the next run to prove memory is reusable.',
 ];
-
-const TAG_COLORS: Record<string, string> = {
-  new: '#818cf8',
-  improved: '#34d399',
-  fix: '#f87171',
-};
 
 function CodeBlock({ label, language, children }: { label: string; language: string; children: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-        <div className="flex gap-1.5">
-          <div className="w-2.5 h-2.5 rounded-full bg-red-500/40" />
-          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/40" />
-          <div className="w-2.5 h-2.5 rounded-full bg-green-500/40" />
-        </div>
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
         <span className="text-xs font-mono-ui text-muted-foreground">{label}</span>
         <span className="text-xs text-muted-foreground">{language}</span>
       </div>
-      <pre className="p-4 text-xs font-mono-ui text-muted-foreground overflow-x-auto hide-scrollbar leading-relaxed">
+      <pre className="hide-scrollbar overflow-x-auto p-4 text-xs leading-relaxed text-muted-foreground font-mono-ui">
         <code>{children}</code>
       </pre>
     </div>
   );
 }
 
-function SectionDetail({ section }: { section: (typeof SECTIONS)[SectionKey] }) {
+function GuidanceBlock({ title, items, color }: { title: string; items: string[]; color: string }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <section.icon className="w-4 h-4" style={{ color: section.color }} />
-        <p className="text-sm font-semibold text-foreground">{section.title}</p>
-      </div>
-      <p className="text-sm text-muted-foreground leading-relaxed mb-4">{section.outcome}</p>
+    <div>
+      <p className="mb-3 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">{title}</p>
       <div className="space-y-2">
-        {section.details.map((detail) => (
-          <div key={detail} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
-            <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" style={{ color: section.color }} />
-            <span>{detail}</span>
+        {items.map((item) => (
+          <div key={item} className="flex gap-2 text-sm leading-relaxed text-muted-foreground">
+            <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0" style={{ color }} />
+            <span>{item}</span>
           </div>
         ))}
       </div>
-      <p className="mt-4 border-t border-border pt-3 text-xs text-muted-foreground/80 leading-relaxed">
-        Verify: {section.verify}
-      </p>
+    </div>
+  );
+}
+
+function SectionHeader({ section }: { section: DocSection }) {
+  return (
+    <div className="mb-7">
+      <div className="mb-3 flex items-center gap-3">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card">
+          <section.icon className="h-4 w-4" style={{ color: section.color }} />
+        </div>
+        <div>
+          <p className="text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">{section.shortTitle}</p>
+          <h2 className="text-2xl font-semibold text-foreground">{section.title}</h2>
+        </div>
+      </div>
+      <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground">{section.goal}</p>
     </div>
   );
 }
@@ -362,9 +433,18 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
   const visibleSections = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     if (!query) return SECTION_ORDER;
+
     return SECTION_ORDER.filter((key) => {
       const section = SECTIONS[key];
-      return [section.title, section.shortTitle, section.summary, section.outcome, ...section.details]
+      return [
+        section.title,
+        section.shortTitle,
+        section.summary,
+        section.goal,
+        ...section.useWhen,
+        ...section.doThis,
+        ...section.verify,
+      ]
         .join(' ')
         .toLowerCase()
         .includes(query);
@@ -381,226 +461,201 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
     }, 0);
   };
 
-  const activeDetail = SECTIONS[activeSection];
-
   return (
     <div className="pt-16">
-      <section className="px-6 py-20 relative overflow-hidden border-b border-border">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(ellipse 50% 40% at 50% 30%, rgba(129,140,248,0.05) 0%, transparent 70%)' }}
-        />
-        <div className="max-w-3xl mx-auto text-center relative z-10">
-          <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-4">Documentation</p>
-          <h1 className="font-display text-5xl text-foreground mb-5">
-            Everything needed to integrate MemoryMesh.
-          </h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            Start with a demo, choose a memory backend, connect through MCP, API, or SDK, then verify every run with a receipt.
-          </p>
+      <section className="border-b border-border px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-10 lg:grid-cols-[1fr_360px] lg:items-end">
+            <div>
+              <p className="mb-4 text-xs font-mono-ui uppercase tracking-widest text-primary">Developer documentation</p>
+              <h1 className="mb-5 max-w-3xl font-display text-5xl text-foreground">
+                Integrate durable agent memory without losing the proof trail.
+              </h1>
+              <p className="max-w-2xl text-lg leading-relaxed text-muted-foreground">
+                This guide explains the adoption path, authentication model, memory modes, SDKs, MCP server, REST API, and verification checks that make MemoryMesh usable in real developer workflows.
+              </p>
+            </div>
 
-          <div className="relative max-w-xl mx-auto">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search docs..."
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              className="w-full bg-card border border-border rounded-xl pl-11 pr-4 py-3.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50 transition-colors"
-            />
-            <kbd className="absolute right-4 top-1/2 -translate-y-1/2 hidden sm:flex items-center gap-1 text-xs text-muted-foreground font-mono-ui">
-              <span className="px-1.5 py-0.5 border border-border rounded bg-muted/30">Ctrl</span>
-              <span className="px-1.5 py-0.5 border border-border rounded bg-muted/30">K</span>
-            </kbd>
+            <div className="rounded-xl border border-border bg-card p-5">
+              <p className="mb-3 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Read this in order</p>
+              <div className="space-y-3">
+                {INTEGRATION_ORDER.map((step, index) => (
+                  <div key={step} className="flex gap-3 text-sm text-muted-foreground">
+                    <span className="font-mono-ui text-xs text-primary/70">{String(index + 1).padStart(2, '0')}</span>
+                    <span>{step}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
-            {(['quick', 'mcp', 'api', 'sdk'] as SectionKey[]).map((key) => (
+          <div className="mt-10 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search quick start, MCP, API keys, SDKs, local_cognee..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                className="w-full rounded-xl border border-border bg-card py-3.5 pl-11 pr-4 text-sm text-foreground placeholder:text-muted-foreground transition-colors focus:border-primary/50 focus:outline-none"
+              />
+            </div>
+            <div className="flex flex-wrap gap-3">
               <button
-                key={key}
-                type="button"
-                onClick={() => openSection(key)}
-                className={`text-xs border px-3 py-1.5 rounded-full transition-all ${
-                  activeSection === key
-                    ? 'text-foreground border-primary/40 bg-primary/8'
-                    : 'text-muted-foreground border-border hover:text-foreground hover:border-foreground/15'
-                }`}
+                onClick={onEnterWorkspace}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary/90"
               >
-                {SECTIONS[key].shortTitle}
+                Try demo
+                <ArrowRight className="h-4 w-4" />
               </button>
-            ))}
-          </div>
-
-          <div className="mt-5 text-left">
-            <SectionDetail section={activeDetail} />
+              <button
+                onClick={openLocalConsole}
+                className="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 text-sm font-medium text-foreground transition-all hover:bg-muted/30"
+              >
+                Local console
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="grid lg:grid-cols-3 gap-12 py-16">
-          <div className="lg:col-span-2 space-y-16">
-            <div id={SECTIONS.quick.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-6">
-                <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
-                  <Zap className="w-3.5 h-3.5 text-primary" />
-                </div>
-                <h2 className="font-semibold text-foreground">Quick start - 5 minutes</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-400/10 text-green-400 border border-green-400/20">Start here</span>
+      <div className="mx-auto max-w-6xl px-6">
+        <div className="grid gap-12 py-14 lg:grid-cols-[minmax(0,1fr)_300px]">
+          <main className="space-y-20">
+            <section id={SECTIONS.quick.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.quick} />
+
+              <div className="mb-8 rounded-xl border border-border bg-card p-5">
+                <p className="mb-2 text-xs font-mono-ui uppercase tracking-widest text-primary">Start here</p>
+                <h3 className="mb-2 text-lg font-semibold text-foreground">Pick the memory mode before you pick the integration.</h3>
+                <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground">
+                  MemoryMesh has three entry points because teams evaluate memory differently. Demo mode proves the workflow, local mode proves privacy, and cloud mode proves shared team memory with tenant API keys.
+                </p>
               </div>
 
-              <div className="space-y-3">
-                {QUICK_START_STEPS.map((step) => (
-                  <div key={step.step} className="rounded-xl border border-border bg-card overflow-hidden">
-                    <div className="flex items-start gap-4 px-5 py-4">
-                      <span className="font-mono-ui text-xs text-primary/50 mt-0.5 w-6 shrink-0">{step.step}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-3 mb-1.5">
-                          <span className="font-medium text-sm text-foreground">{step.title}</span>
-                          <span className="text-xs font-mono-ui text-muted-foreground shrink-0 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {step.time}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
-                      </div>
+              <div className="mb-8 grid gap-4 md:grid-cols-3">
+                {ADOPTION_PATHS.map((path) => (
+                  <div key={path.name} className="rounded-xl border border-border bg-card p-5">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <h3 className="text-base font-semibold text-foreground">{path.name}</h3>
+                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs text-primary">
+                        {path.badge}
+                      </span>
+                    </div>
+                    <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{path.result}</p>
+                    <div className="space-y-3 border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
+                      <p><span className="text-foreground">Best for:</span> {path.bestFor}</p>
+                      <p><span className="text-foreground">Next:</span> {path.next}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              <div className="mt-5 flex items-center gap-3 flex-wrap">
-                <button
-                  onClick={onEnterWorkspace}
-                  className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 transition-all"
-                >
-                  Try demo
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={openLocalConsole}
-                  className="inline-flex items-center gap-2 border border-border text-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-muted/30 transition-all"
-                >
-                  Local console
-                </button>
-                <span className="text-xs text-muted-foreground">No account required for demo.</span>
-              </div>
-            </div>
-
-            <div id={SECTIONS.mcp.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
-                  <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+              <div className="rounded-xl border border-border bg-card p-5">
+                <div className="mb-5 flex items-start justify-between gap-4">
+                  <div>
+                    <p className="mb-2 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">First run contract</p>
+                    <h3 className="text-lg font-semibold text-foreground">A first run is only useful when it can be checked and reused.</h3>
+                  </div>
+                  <span className="hidden rounded-full border border-green-400/20 bg-green-400/10 px-3 py-1 text-xs text-green-400 sm:inline-flex">
+                    Receipt-backed
+                  </span>
                 </div>
-                <h2 className="font-semibold text-foreground">MCP integration</h2>
+                <div className="grid gap-3 md:grid-cols-4">
+                  {FIRST_RUN_CONTRACT.map((item) => (
+                    <div key={item.label} className="border-l border-border pl-4">
+                      <p className="mb-1 text-sm font-semibold text-foreground">{item.label}</p>
+                      <p className="text-xs leading-relaxed text-muted-foreground">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                Use MCP when the host agent already supports tools. The MCP server is a bridge; MemoryMesh API remains the system of record.
-              </p>
+            </section>
+
+            <section id={SECTIONS.mcp.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.mcp} />
+              <div className="mb-6 grid gap-8 lg:grid-cols-3">
+                <GuidanceBlock title="Use this when" items={SECTIONS.mcp.useWhen} color={SECTIONS.mcp.color} />
+                <GuidanceBlock title="Do this" items={SECTIONS.mcp.doThis} color={SECTIONS.mcp.color} />
+                <GuidanceBlock title="Verify" items={SECTIONS.mcp.verify} color={SECTIONS.mcp.color} />
+              </div>
               <CodeBlock label=".cursor/mcp.json" language="JSON">{MCP_SNIPPET}</CodeBlock>
-            </div>
+            </section>
 
-            <div id={SECTIONS.api.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-green-400/10 border border-green-400/20 flex items-center justify-center">
-                  <Code2 className="w-3.5 h-3.5 text-green-400" />
-                </div>
-                <h2 className="font-semibold text-foreground">REST API and API keys</h2>
+            <section id={SECTIONS.api.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.api} />
+              <div className="mb-6 grid gap-8 lg:grid-cols-3">
+                <GuidanceBlock title="Use this when" items={SECTIONS.api.useWhen} color={SECTIONS.api.color} />
+                <GuidanceBlock title="Do this" items={SECTIONS.api.doThis} color={SECTIONS.api.color} />
+                <GuidanceBlock title="Verify" items={SECTIONS.api.verify} color={SECTIONS.api.color} />
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                API-key deployments use `X-MemoryMesh-API-Key` by default. The backend stores only hashed keys, resolves tenant context from the key, and checks role scopes before privileged operations.
-              </p>
               <div className="grid gap-4">
                 <CodeBlock label="api-keys.ts" language="TypeScript">{API_KEY_SNIPPET}</CodeBlock>
                 <CodeBlock label="recall.ts" language="TypeScript">{REST_SNIPPET}</CodeBlock>
               </div>
-            </div>
+            </section>
 
-            <div id={SECTIONS.sdk.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
-                  <Package className="w-3.5 h-3.5 text-amber-400" />
-                </div>
-                <h2 className="font-semibold text-foreground">SDKs</h2>
+            <section id={SECTIONS.sdk.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.sdk} />
+              <div className="mb-6 grid gap-8 lg:grid-cols-3">
+                <GuidanceBlock title="Use this when" items={SECTIONS.sdk.useWhen} color={SECTIONS.sdk.color} />
+                <GuidanceBlock title="Do this" items={SECTIONS.sdk.doThis} color={SECTIONS.sdk.color} />
+                <GuidanceBlock title="Verify" items={SECTIONS.sdk.verify} color={SECTIONS.sdk.color} />
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                The published SDK docs are reflected here: install, authenticate, verify with health() and memoryStatus(), run agents, remember, recall, trace tools, and handle errors.
-              </p>
               <div className="grid gap-4">
                 <CodeBlock label="@memorymsh/sdk" language="TypeScript">{TS_SDK_SNIPPET}</CodeBlock>
                 <CodeBlock label="memorymesh-sdk" language="Python">{PY_SDK_SNIPPET}</CodeBlock>
                 <CodeBlock label="tool-tracing.ts" language="TypeScript">{TOOL_TRACE_SNIPPET}</CodeBlock>
                 <CodeBlock label="errors.ts" language="TypeScript">{ERROR_SNIPPET}</CodeBlock>
               </div>
-            </div>
+            </section>
 
-            <div id={SECTIONS.memory.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-violet-400/10 border border-violet-400/20 flex items-center justify-center">
-                  <Brain className="w-3.5 h-3.5 text-violet-400" />
-                </div>
-                <h2 className="font-semibold text-foreground">Memory concepts</h2>
+            <section id={SECTIONS.memory.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.memory} />
+              <div className="mb-6 grid gap-8 lg:grid-cols-3">
+                <GuidanceBlock title="Use this when" items={SECTIONS.memory.useWhen} color={SECTIONS.memory.color} />
+                <GuidanceBlock title="Do this" items={SECTIONS.memory.doThis} color={SECTIONS.memory.color} />
+                <GuidanceBlock title="Verify" items={SECTIONS.memory.verify} color={SECTIONS.memory.color} />
               </div>
-              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                MemoryMesh sits on top of Cognee memory. It adds the developer-facing workflow: backends, datasets, session boundaries, operations, receipts, checkpoints, and recovery state.
-              </p>
               <CodeBlock label="memory.ts" language="TypeScript">{MEMORY_SNIPPET}</CodeBlock>
-            </div>
+            </section>
 
-            <div id={SECTIONS.security.id} className="scroll-mt-24">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-green-400/10 border border-green-400/20 flex items-center justify-center">
-                  <Shield className="w-3.5 h-3.5 text-green-400" />
-                </div>
-                <h2 className="font-semibold text-foreground">Privacy & security</h2>
+            <section id={SECTIONS.security.id} className="scroll-mt-24">
+              <SectionHeader section={SECTIONS.security} />
+              <div className="grid gap-8 lg:grid-cols-3">
+                <GuidanceBlock title="Use this when" items={SECTIONS.security.useWhen} color={SECTIONS.security.color} />
+                <GuidanceBlock title="Do this" items={SECTIONS.security.doThis} color={SECTIONS.security.color} />
+                <GuidanceBlock title="Verify" items={SECTIONS.security.verify} color={SECTIONS.security.color} />
               </div>
-              <div className="rounded-xl border border-border bg-card p-5">
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {[
-                    'Use X-MemoryMesh-API-Key for service integrations and Authorization for signed user sessions.',
-                    'Use local_cognee when memory must stay inside your network.',
-                    'Use role scopes for least-privilege automation keys.',
-                    'Keep dataset and session ids stable but avoid placing secrets inside them.',
-                    'Store receipt_ref for audit and incident reconstruction.',
-                    'Probe memory_status before relying on Cognee Cloud or local Cognee in production.',
-                  ].map((tip) => (
-                    <div key={tip} className="flex items-start gap-2 text-xs text-muted-foreground leading-relaxed">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-green-400 mt-0.5 shrink-0" />
-                      {tip}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+            </section>
+          </main>
 
-          <div className="space-y-8">
+          <aside className="space-y-6 lg:sticky lg:top-24 lg:self-start">
             <div>
-              <h3 className="text-xs font-mono-ui text-muted-foreground uppercase tracking-widest mb-4">Documentation</h3>
+              <h3 className="mb-4 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Documentation</h3>
               <div className="space-y-1">
                 {visibleSections.map((key) => {
                   const section = SECTIONS[key];
+                  const isActive = activeSection === key;
+
                   return (
-                    <div key={key}>
-                      <button
-                        type="button"
-                        onClick={() => openSection(key)}
-                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
-                          activeSection === key ? 'bg-primary/8 text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <section.icon className="w-3.5 h-3.5 shrink-0" style={{ color: section.color }} />
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => openSection(key)}
+                      className={`w-full rounded-lg px-3 py-3 text-left transition-colors ${
+                        isActive ? 'bg-primary/8 text-foreground' : 'text-muted-foreground hover:bg-muted/20 hover:text-foreground'
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-2.5">
+                          <section.icon className="h-3.5 w-3.5 shrink-0" style={{ color: section.color }} />
                           <span className="text-sm">{section.title}</span>
-                        </div>
-                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeSection === key ? 'rotate-90' : ''}`} />
-                      </button>
-                      {activeSection === key && (
-                        <div className="mt-2 mb-3 ml-6">
-                          <SectionDetail section={section} />
-                        </div>
-                      )}
-                    </div>
+                        </span>
+                        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${isActive ? 'rotate-90' : ''}`} />
+                      </span>
+                      {isActive && <span className="mt-2 block text-xs leading-relaxed text-muted-foreground">{section.summary}</span>}
+                    </button>
                   );
                 })}
                 {visibleSections.length === 0 && (
@@ -610,10 +665,10 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             </div>
 
             <div className="rounded-xl border border-border bg-card p-5">
-              <KeyRound className="w-5 h-5 text-primary mb-3" />
-              <h4 className="text-sm font-semibold text-foreground mb-1.5">API key model</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                Keys are created once, returned once, stored as hashes, and checked against tenant context plus role scopes.
+              <KeyRound className="mb-3 h-5 w-5 text-primary" />
+              <h4 className="mb-2 text-sm font-semibold text-foreground">MemoryMesh API Key</h4>
+              <p className="mb-4 text-xs leading-relaxed text-muted-foreground">
+                Cloud and service integrations should use scoped API keys. Keys are returned once, stored as hashes, and resolved to tenant context on each request.
               </p>
               <div className="space-y-2 text-xs text-muted-foreground">
                 <p><span className="text-foreground">Header:</span> X-MemoryMesh-API-Key</p>
@@ -623,52 +678,29 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-xs font-mono-ui text-muted-foreground uppercase tracking-widest mb-4">Recent changes</h3>
-              <div className="space-y-3">
-                {CHANGELOG.map((item) => (
-                  <div key={`${item.date}-${item.text}`} className="flex items-start gap-3">
-                    <span
-                      className="text-xs font-mono-ui px-1.5 py-0.5 rounded shrink-0 mt-0.5"
-                      style={{ color: TAG_COLORS[item.tag], background: `${TAG_COLORS[item.tag]}15` }}
-                    >
-                      {item.tag}
-                    </span>
-                    <div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">{item.text}</p>
-                      <p className="text-xs text-muted-foreground/40 mt-0.5 font-mono-ui">{item.date}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="rounded-xl border border-border bg-card p-5">
-              <BookOpen className="w-5 h-5 text-primary mb-3" />
-              <h4 className="text-sm font-semibold text-foreground mb-1.5">Adoption order</h4>
-              <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                Demo first, local or cloud backend second, package integration third, production scopes last.
-              </p>
+              <BookOpen className="mb-3 h-5 w-5 text-primary" />
+              <h4 className="mb-2 text-sm font-semibold text-foreground">Where to go next</h4>
               <div className="space-y-2">
                 {[
-                  ['Demo', onEnterWorkspace],
-                  ['Memory modes', () => onNavigate('memory')],
-                  ['Agent setup', () => onNavigate('agents')],
-                  ['Pricing', () => onNavigate('pricing')],
+                  ['Try demo memory', onEnterWorkspace],
+                  ['Open local console', openLocalConsole],
+                  ['Choose memory mode', () => onNavigate('memory')],
+                  ['Configure agents', () => onNavigate('agents')],
                 ].map(([label, action]) => (
                   <button
                     key={label as string}
                     type="button"
                     onClick={action as () => void}
-                    className="flex w-full items-center justify-between text-xs text-muted-foreground hover:text-foreground transition-colors group"
+                    className="group flex w-full items-center justify-between text-xs text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <span>{label as string}</span>
-                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
                   </button>
                 ))}
               </div>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>
