@@ -799,8 +799,8 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { name: 'Build Assistant', status: 'available', desc: 'Code generation & refactoring' },
-                    { name: 'Research Agent', status: 'coming', desc: 'Deep research & synthesis' },
-                    { name: 'Support Agent', status: 'coming', desc: 'Customer ticket handling' },
+                    { name: 'Research Agent', status: 'available', desc: 'Deep research & synthesis' },
+                    { name: 'Support Agent', status: 'available', desc: 'Customer ticket handling' },
                     { name: 'Ops Agent', status: 'coming', desc: 'Infrastructure & deployments' },
                   ].map(agent => (
                     <div key={agent.name} className="rounded-lg border border-border bg-muted/20 p-3">

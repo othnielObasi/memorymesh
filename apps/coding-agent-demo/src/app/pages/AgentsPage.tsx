@@ -29,7 +29,7 @@ const BUILTIN_AGENTS = [
   {
     icon: Search,
     name: 'Research Agent',
-    status: 'coming' as const,
+    status: 'available' as const,
     tagline: 'Deep research, synthesis & knowledge curation',
     description: 'Conducts multi-source research and builds a persistent knowledge base that improves with every session.',
     capabilities: [
@@ -44,7 +44,7 @@ const BUILTIN_AGENTS = [
   {
     icon: HeadphonesIcon,
     name: 'Support Agent',
-    status: 'coming' as const,
+    status: 'available' as const,
     tagline: 'Customer ticket resolution with institutional memory',
     description: 'Handles support tickets with full knowledge of prior cases, known solutions, and product documentation.',
     capabilities: [
