@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Search, Terminal, Brain, Code2, Package, BookOpen, GitBranch, Shield, Zap, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, Search, Terminal, Brain, Code2, Package, BookOpen, Shield, Zap, ChevronRight, Clock, CheckCircle2 } from 'lucide-react';
 import type { PageType } from '../LandingPage';
 
 interface Props {
@@ -57,6 +57,59 @@ const SECTIONS = [
     tag: null,
   },
 ];
+
+const QUICK_LINKS = [
+  { label: 'Quick start', section: 'Quick start' },
+  { label: 'MCP setup', section: 'MCP integration' },
+  { label: 'API reference', section: 'REST API' },
+  { label: 'SDKs', section: 'SDKs' },
+];
+
+const SECTION_DETAILS: Record<string, { outcome: string; steps: string[]; cta: string }> = {
+  'Quick start': {
+    outcome: 'A developer should understand the three memory modes, run a demo session, and know where to go next.',
+    steps: [
+      'Use Try demo to run without login.',
+      'Inspect the generated receipt instead of treating the answer as plain chat.',
+      'Move to Local for private self-hosted Cognee or Cloud for a managed workspace.',
+    ],
+    cta: 'Best first path: Try demo, then review the receipt fields.',
+  },
+  'MCP integration': {
+    outcome: 'Existing agent clients can call MemoryMesh as tools without rewriting their runtime.',
+    steps: [
+      'Install @memorymsh/mcp-server with npx.',
+      'Add the server config to Cursor, OpenCode, or any MCP-compatible client.',
+      'Run memorymesh_status, then call recall, remember, improve, forget, or run_agent.',
+    ],
+    cta: 'Best first path: configure local_cognee while developing, then switch to cognee_cloud when ready.',
+  },
+  'REST API': {
+    outcome: 'Custom services can create agent runs, recall memory, and store receipts directly over HTTP.',
+    steps: [
+      'Authenticate with a signed session token or API key.',
+      'Send stable project, dataset, and agent identifiers.',
+      'Store receipt_ref with your ticket, job, PR, or workflow run.',
+    ],
+    cta: 'Best first path: call /api/memory/recall, then wire run receipts into your app.',
+  },
+  SDKs: {
+    outcome: 'Application code can use MemoryMesh without hand-writing fetch calls.',
+    steps: [
+      'Use @memorymsh/sdk for TypeScript and JavaScript agents.',
+      'Use memorymesh-sdk for Python workers, notebooks, and backend services.',
+      'Use the MCP package when the host tool already supports MCP.',
+    ],
+    cta: 'Best first path: install the SDK for your runtime, run an agent, and log run_id plus receipt_ref.',
+  },
+};
+
+const SECTION_IDS: Record<string, string> = {
+  'Quick start': 'docs-quick-start',
+  'MCP integration': 'docs-mcp',
+  'REST API': 'docs-api',
+  SDKs: 'docs-sdks',
+};
 
 const QUICK_START_STEPS = [
   {
@@ -178,9 +231,20 @@ const TAG_COLORS: Record<string, string> = {
 };
 
 export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string | null>('Quick start');
   const [searchQuery, setSearchQuery] = useState('');
   const openLocalConsole = () => window.location.assign('/?mode=local');
+  const activeDetail = activeSection ? SECTION_DETAILS[activeSection] : null;
+
+  const openSection = (section: string) => {
+    setActiveSection(section);
+    window.setTimeout(() => {
+      document.getElementById(SECTION_IDS[section] ?? 'docs-quick-start')?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      });
+    }, 0);
+  };
 
   return (
     <div className="pt-16">
@@ -216,13 +280,35 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
 
           {/* Quick links */}
           <div className="flex items-center justify-center gap-3 mt-5 flex-wrap">
-            {['Quick start', 'MCP setup', 'API reference', 'SDKs'].map(link => (
-              <button key={link}
-                className="text-xs text-muted-foreground border border-border px-3 py-1.5 rounded-full hover:text-foreground hover:border-foreground/15 transition-all">
-                {link}
+            {QUICK_LINKS.map(link => (
+              <button
+                key={link.label}
+                type="button"
+                onClick={() => openSection(link.section)}
+                className={`text-xs border px-3 py-1.5 rounded-full transition-all ${
+                  activeSection === link.section
+                    ? 'text-foreground border-primary/40 bg-primary/8'
+                    : 'text-muted-foreground border-border hover:text-foreground hover:border-foreground/15'
+                }`}
+              >
+                {link.label}
               </button>
             ))}
           </div>
+
+          {activeDetail && (
+            <div className="mt-5 rounded-xl border border-border bg-card/80 p-4 text-left">
+              <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-2">{activeSection}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed mb-3">{activeDetail.outcome}</p>
+              <div className="grid sm:grid-cols-3 gap-2">
+                {activeDetail.steps.map(step => (
+                  <div key={step} className="rounded-lg border border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground leading-relaxed">
+                    {step}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
@@ -233,7 +319,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
           <div className="lg:col-span-2 space-y-16">
 
             {/* Quick start guide */}
-            <div>
+            <div id="docs-quick-start" className="scroll-mt-24">
               <div className="flex items-center gap-2 mb-6">
                 <div className="w-7 h-7 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center">
                   <Zap className="w-3.5 h-3.5 text-primary" />
@@ -283,7 +369,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             </div>
 
             {/* MCP integration */}
-            <div>
+            <div id="docs-mcp" className="scroll-mt-24">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-7 h-7 rounded-lg bg-cyan-400/10 border border-cyan-400/20 flex items-center justify-center">
                   <Terminal className="w-3.5 h-3.5 text-cyan-400" />
@@ -317,7 +403,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             </div>
 
             {/* REST API */}
-            <div>
+            <div id="docs-api" className="scroll-mt-24">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-7 h-7 rounded-lg bg-green-400/10 border border-green-400/20 flex items-center justify-center">
                   <Code2 className="w-3.5 h-3.5 text-green-400" />
@@ -344,7 +430,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             </div>
 
             {/* SDKs */}
-            <div>
+            <div id="docs-sdks" className="scroll-mt-24">
               <div className="flex items-center gap-2 mb-5">
                 <div className="w-7 h-7 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center">
                   <Package className="w-3.5 h-3.5 text-amber-400" />
@@ -423,19 +509,39 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
               <h3 className="text-xs font-mono-ui text-muted-foreground uppercase tracking-widest mb-4">Documentation</h3>
               <div className="space-y-1">
                 {SECTIONS.map(section => (
-                  <button
-                    key={section.title}
-                    onClick={() => setActiveSection(activeSection === section.title ? null : section.title)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
-                      activeSection === section.title ? 'bg-primary/8 text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <section.icon className="w-3.5 h-3.5 shrink-0" style={{ color: section.color }} />
-                      <span className="text-sm">{section.title}</span>
-                    </div>
-                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeSection === section.title ? 'rotate-90' : ''}`} />
-                  </button>
+                  <div key={section.title}>
+                    <button
+                      type="button"
+                      onClick={() => openSection(section.title)}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-left transition-colors ${
+                        activeSection === section.title ? 'bg-primary/8 text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-muted/20'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <section.icon className="w-3.5 h-3.5 shrink-0" style={{ color: section.color }} />
+                        <span className="text-sm">{section.title}</span>
+                      </div>
+                      <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeSection === section.title ? 'rotate-90' : ''}`} />
+                    </button>
+                    {activeSection === section.title && (
+                      <div className="mt-2 mb-3 ml-6 rounded-lg border border-border bg-card p-3">
+                        <p className="text-xs text-muted-foreground leading-relaxed mb-3">{section.desc}</p>
+                        <div className="space-y-2">
+                          {section.guides.map(guide => (
+                            <div key={guide} className="flex items-start gap-2 text-xs text-muted-foreground">
+                              <CheckCircle2 className="w-3 h-3 mt-0.5 shrink-0" style={{ color: section.color }} />
+                              {guide}
+                            </div>
+                          ))}
+                        </div>
+                        {SECTION_DETAILS[section.title] && (
+                          <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground/80 leading-relaxed">
+                            {SECTION_DETAILS[section.title].cta}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
