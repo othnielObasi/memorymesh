@@ -2,6 +2,7 @@ import asyncio
 from types import SimpleNamespace
 
 from app.auth_api import LoginRequest, SignupRequest, login, signup
+from app.api import agent_run_response
 from app.config import Settings
 from app.db.postgres import PostgresStore
 from app.security import resolve_principal
@@ -94,3 +95,20 @@ def test_production_agent_receipts_replay_by_workspace_idempotency_key():
         assert second["workspace_id"] == "wrk_product"
 
     asyncio.run(run())
+
+
+def test_agent_run_response_includes_nested_receipt_without_breaking_flat_contract():
+    receipt = {
+        "run_id": "agent_run_123",
+        "agent_id": "research",
+        "agent_name": "Research Assistant",
+        "status": "complete",
+        "evidence": [{"title": "Source"}],
+    }
+
+    response = agent_run_response(receipt)
+
+    assert response["run_id"] == "agent_run_123"
+    assert response["agent_id"] == "research"
+    assert response["receipt"] == receipt
+    assert response["receipt_ref"] == "agent_runs/agent_run_123"

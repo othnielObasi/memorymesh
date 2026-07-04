@@ -762,7 +762,7 @@ async def run_production_agent(
     payload = payload or {}
     runtime = ProductionAgentRuntime(svc['store'], svc['settings'])
     try:
-        return await runtime.run(
+        receipt = await runtime.run(
             agent_id=str(payload.get('agent_id') or 'build'),
             task=str(payload.get('task') or payload.get('task_description') or ''),
             memory_backend=payload.get('backend') or payload.get('memory_backend'),
@@ -772,8 +772,18 @@ async def run_production_agent(
             tenant_context=principal.context_dict(),
             idempotency_key=str(payload.get('idempotency_key') or idempotency_header or '').strip() or None,
         )
+        return agent_run_response(receipt)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+def agent_run_response(receipt: dict[str, Any]) -> dict[str, Any]:
+    run_id = receipt.get("run_id")
+    return {
+        **receipt,
+        "receipt": receipt,
+        "receipt_ref": f"agent_runs/{run_id}" if run_id else None,
+    }
 
 
 @router.post('/projects/upload')
