@@ -65,7 +65,7 @@ class ForgetRequest(BaseModel):
 
 
 def _configured_api_key() -> str | None:
-    return os.getenv("COGNEE_LOCAL_API_KEY") or os.getenv("COGNEE_API_KEY") or None
+    return os.getenv("COGNEE_LOCAL_API_KEY") or None
 
 
 async def _require_api_key(x_api_key: str | None = Header(default=None, alias="X-Api-Key")) -> None:

@@ -75,9 +75,9 @@ Last checked: 2026-07-04.
 | Backend contract tests | Passed | Cognee backend router, production agents, and API contract tests passed locally. |
 | Cognee Cloud | Passed | `python scripts/run_hackathon_demo.py --base-url https://api-two-blue-75.vercel.app --backend cognee_cloud` returned `fallback_used=false` for remember/recall/forget and `backend_ready=true`. |
 | Offline mirror fallback | Passed | `offline_mirror` is healthy and clearly labelled as fallback-only. |
-| Open-source/local Cognee | Blocked on local Docker runtime | Production API currently reports `local_cognee` falling back because `COGNEE_LOCAL_SERVICE_URL` is not configured there. Local Docker proof requires Docker Desktop/Linux engine running, then `docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up -d --build postgres cognee-local api`. |
+| Open-source/local Cognee | Passed locally without Docker | `python scripts/run_open_source_cognee_local.py` starts open-source Cognee and the MemoryMesh API locally, disables fallback, and verifies `local_cognee` remember/recall/recovery/forget with `fallback_used=false`. Docker Compose config also validates. |
 
-Submission should not claim the open-source Cognee prize proof is live until `local_cognee` reports `ready=true`, `service_url_configured=true`, and lifecycle operations return `fallback_used=false`.
+Submission should use the no-Docker local proof runner or Docker Compose proof before claiming the open-source Cognee prize path. The required evidence is `local_cognee`, `ready=true`, `service_url_configured=true`, and lifecycle operations returning `fallback_used=false`.
 
 ## Submission demo script
 

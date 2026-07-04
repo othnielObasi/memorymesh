@@ -148,10 +148,20 @@ For development without live keys, MemoryMesh keeps deterministic local fallback
 ```bash
 npm install
 cp .env.oss.example .env
+python scripts/run_open_source_cognee_local.py
+```
+
+The no-Docker runner starts a local open-source Cognee service and MemoryMesh API,
+sets `COGNEE_ALLOW_OFFLINE_FALLBACK=false`, runs the strict proof, and shuts the
+processes down. A passing run proves `local_cognee` with `fallback_used=false`.
+
+For Docker-based local hosting, run:
+
+```bash
 docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up --build
 ```
 
-The override starts a separate `cognee-local` container and points the API at
+The Docker override starts a separate `cognee-local` container and points the API at
 `http://cognee-local:8000`. The same service is exposed to the host at
 `http://127.0.0.1:8001` for manual checks. This keeps the heavy open-source
 Cognee runtime out of the Vercel API bundle while still giving local/self-hosted

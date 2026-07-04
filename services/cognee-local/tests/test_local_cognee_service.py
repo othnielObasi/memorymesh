@@ -24,6 +24,17 @@ def test_dataset_probe_without_api_key_when_not_configured(monkeypatch):
     assert response.json()["service"] == "memorymesh-cognee-local"
 
 
+def test_cloud_cognee_key_does_not_protect_local_service(monkeypatch):
+    monkeypatch.delenv("COGNEE_LOCAL_API_KEY", raising=False)
+    monkeypatch.setenv("COGNEE_API_KEY", "cloud-key-is-not-local-auth")
+    client = TestClient(app)
+
+    response = client.get("/api/v1/datasets/")
+
+    assert response.status_code == 200
+    assert response.json()["service"] == "memorymesh-cognee-local"
+
+
 def test_dataset_probe_rejects_wrong_api_key(monkeypatch):
     monkeypatch.setenv("COGNEE_LOCAL_API_KEY", "expected-local-key")
     client = TestClient(app)
