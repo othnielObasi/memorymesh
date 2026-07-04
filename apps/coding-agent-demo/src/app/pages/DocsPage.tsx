@@ -524,7 +524,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
                 <h2 className="font-semibold text-foreground">SDKs</h2>
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-                The published SDK docs are reflected here: install, authenticate, run agents, remember, recall, trace tools, and handle errors.
+                The published SDK docs are reflected here: install, authenticate, verify with health() and memoryStatus(), run agents, remember, recall, trace tools, and handle errors.
               </p>
               <div className="grid gap-4">
                 <CodeBlock label="@memorymsh/sdk" language="TypeScript">{TS_SDK_SNIPPET}</CodeBlock>
