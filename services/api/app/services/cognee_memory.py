@@ -329,9 +329,7 @@ class CogneeMemoryService:
                 status = "recalled_from_offline_mirror" if self.backend == "offline_mirror" else "recalled_with_offline_mirror"
                 results = await self._local_recall(query=query, dataset=dataset, session_id=session_id, top_k=top_k)
             else:
-                recall_kwargs = {"session_id": session_id, "top_k": top_k}
-                if not session_id:
-                    recall_kwargs["datasets"] = [dataset]
+                recall_kwargs = {"datasets": [dataset], "session_id": session_id, "top_k": top_k}
                 raw = await self._call_with_supported_kwargs(client.recall, query, **recall_kwargs)
                 results = self._normalise_results(raw)
         except Exception as exc:  # pragma: no cover - depends on external Cognee runtime
