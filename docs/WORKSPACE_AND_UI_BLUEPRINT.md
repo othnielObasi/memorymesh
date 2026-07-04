@@ -51,15 +51,15 @@ Choose mode
 
 This is the hackathon live path.
 
-The first available built-in agent is **Build Assistant**. It uses a sample project, runs tests, saves work memory through Cognee, simulates context loss, recalls a recovery brief, applies a fix, reruns tests, and improves memory from the result.
+The available built-in agents are **Build Assistant**, **Research Assistant**, and **Support Assistant**. Build is the objective code/test proof case; Research demonstrates reusable source trails and open questions; Support demonstrates ticket investigation with tool traces, checkpoints, and recovery state.
 
 Visible agent lanes:
 
 | Agent | Status | Purpose |
 |---|---|---|
 | Build Assistant | Available | Code/workflow proof case with objective test evidence. |
-| Research Assistant | Next | Memory-backed source trails, findings, open questions. |
-| Support Assistant | Next | Customer/ticket context, prior actions, unresolved issues. |
+| Research Assistant | Available | Memory-backed source trails, findings, contradictions, and open questions. |
+| Support Assistant | Available | Ticket context, prior actions, tool traces, checkpoints, and unresolved issues. |
 | Ops Assistant | Next | Incident steps, tool outputs, runbook decisions. |
 
 ### 2. Connect your agent

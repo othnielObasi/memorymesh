@@ -49,8 +49,9 @@ The latest UI implementation now includes the full product direction discussed i
 - MCP/API/SDK connection language that is user-facing rather than implementation-only;
 - a project-source selector for the Build Assistant session;
 - local/cloud/demo memory locations phrased as where the agent remembers work;
-- Build Assistant kept as the real runnable proof case;
-- Research, Support, and Ops assistants retained as future user-facing lanes;
+- Build Assistant kept as the objective code/test proof case;
+- Research and Support assistants marked as live built-in lanes;
+- Ops assistant retained as the future user-facing lane;
 - no fake completed evidence before the user runs a session.
 
 The workspace should feel like a product that people can use, not a backend guide. Details are consolidated in `docs/WORKSPACE_AND_UI_BLUEPRINT.md`.

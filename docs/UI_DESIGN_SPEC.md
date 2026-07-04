@@ -112,7 +112,7 @@ Users should feel they can start work, not that they are reading technical archi
 - [x] UI opens without fake completed results.
 - [x] User can select Run an agent or Connect your agent.
 - [x] Build Assistant is available and runnable.
-- [x] Research, Support, and Ops assistants are visible as future lanes.
+- [x] Research and Support assistants are visible as live lanes; Ops is visible as a future lane.
 - [x] Cursor, Codex, Claude Code, OpenClaw, and custom agents are visible as connected-agent paths.
 - [x] Local Cognee and Cognee Cloud are first-class memory locations.
 - [x] Demo memory is clearly labelled as preview-only.

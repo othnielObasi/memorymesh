@@ -114,7 +114,7 @@ const FAQ = [
   },
   {
     q: "Can I connect my own agents (Cursor, Claude Code, etc.) on the free plan?",
-    a: "Connecting external agents requires API access, which is a Pro feature. The free plan is workspace-only — you run the built-in Build Assistant via the UI.",
+    a: "Connecting external agents requires API access, which is a Pro feature. The free plan is workspace-only — you can run the available built-in assistants from the UI.",
   },
   {
     q: "Is memory encrypted?",

@@ -45,7 +45,7 @@ MemoryMesh supports two usage modes:
 - Run an agent: use a built-in assistant directly in the workspace.
 - Connect your agent: keep using Cursor, Codex, Claude Code, OpenClaw, or a custom agent through MCP, REST API, or SDK.
 
-The Build Assistant is the live hackathon proof case. Research, Support, and Ops are shown as future lanes without pretending they are currently active.
+Build, Research, and Support are live built-in assistants. Build is the objective code/test proof case, Research is the source-backed investigation lane, and Support is the ticket-investigation lane with traces and checkpoints. Ops remains a future lane.
 
 ## Memory locations
 
@@ -60,4 +60,3 @@ The UI says “Where should this agent remember?” rather than “backend selec
 ## Static preview and live app boundary
 
 The static preview is interactive for design review. If the MemoryMesh API is not reachable, clicking Start shows clearly marked preview data. When the API is running, the same screen populates with real agent output and Cognee memory operations.
-

@@ -68,9 +68,7 @@ Technical labels such as `remember`, `recall`, `improve`, and `forget` may appea
 
 ## Current live scope
 
-The Build Assistant is the currently runnable demo agent.
-
-Research Assistant and Support Assistant are visible user-facing lanes, not internal placeholders. They communicate that MemoryMesh is broader than coding and that the same product experience applies to other long-running agent work.
+Build Assistant, Research Assistant, and Support Assistant are currently runnable built-in agents. Build is the objective code/test proof case, Research preserves source-backed findings, and Support preserves ticket-investigation traces and checkpoints. Ops remains a future lane.
 
 ## UI acceptance criteria
 

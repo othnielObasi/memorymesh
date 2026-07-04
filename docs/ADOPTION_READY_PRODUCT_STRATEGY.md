@@ -86,8 +86,8 @@ Avoid:
 
 ## Implementation priorities
 
-1. Keep the Build Assistant as the working proof because test results make recovery objective.
-2. Make Research, Support, and Ops clear product lanes without pretending they are fully live.
+1. Keep the Build Assistant as the objective proof because test results make recovery measurable.
+2. Present Research and Support as live built-in lanes, and Ops as the only future built-in lane.
 3. Make connected-agent mode first-class for Cursor, Codex, Claude Code, OpenClaw, and internal agents.
 4. Show Cognee local and Cognee Cloud as memory locations, not as internal backend jargon.
 5. Add a session receipt that maps directly to remember, recall, improve, and forget.
