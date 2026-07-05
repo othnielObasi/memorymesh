@@ -4,8 +4,6 @@
 
 MemoryMesh is a Cognee-powered user-facing workspace and connection layer for AI agents. It lets people run built-in assistants, or connect the agents they already use, so agent work can be remembered, recovered, improved, and forgotten safely.
 
-For the Cognee-powered product strategy, see [`docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md`](docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md) and [`docs/ADOPTION_READY_PRODUCT_STRATEGY.md`](docs/ADOPTION_READY_PRODUCT_STRATEGY.md).
-
 The project is designed to be strong on **both Cognee hackathon grand-prize tracks**:
 
 | Prize path | MemoryMesh implementation |
@@ -80,9 +78,7 @@ See:
 - `docs/WORKSPACE_AND_UI_BLUEPRINT.md`
 - `docs/UI_DESIGN_SPEC.md`
 - `docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md`
-- `docs/ADOPTION_READY_PRODUCT_STRATEGY.md`
 - `docs/CONNECTED_AGENTS_MCP_API_SDK.md`
-- `docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md`
 - `docs/COGNEE_VS_MEMORYMESH.md`
 
 ## The thesis
@@ -115,7 +111,7 @@ The UI keeps agents visible while remaining run-first. It opens with no fake com
 - Ops Assistant - future operational-workflow lane.
 - Cursor, Codex, Claude Code, OpenClaw, and custom agents - connected-agent paths through MCP/API/SDK.
 
-See `docs/UI_CONTEXT_CORRECTION.md` and `docs/WORKSPACE_AND_UI_BLUEPRINT.md`.
+See `docs/WORKSPACE_AND_UI_BLUEPRINT.md`.
 
 
 ## User-facing UI direction
@@ -128,7 +124,7 @@ Choose an agent -> choose where memory lives -> run a session -> recover context
 
 The screen avoids internal wording such as backend selector, proof console, template lane, judge action, and prize track. It uses product language: agents, session, memory location, recovery summary, memory activity, outcome evidence, and change details.
 
-See `docs/UI_PRODUCT_EXPERIENCE.md` and `docs/UI_DESIGN_SPEC.md`.
+See `docs/UI_DESIGN_SPEC.md`.
 
 ## What the real demo does
 
@@ -301,14 +297,10 @@ scripts/demo_open_source_cognee.sh      Open-source Cognee demo helper
 scripts/demo_cognee_cloud.sh            Cognee Cloud demo helper
 docs/OPEN_SOURCE_COGNEE_MODE.md
 docs/COGNEE_CLOUD_MODE.md
-docs/DUAL_BACKEND_PRIZE_STRATEGY.md
 docs/UI_DESIGN_SPEC.md              UI design, screen structure, interaction model, and acceptance checklist
-docs/UI_IMPLEMENTATION_NOTES.md     Implemented UI changes, acceptance checklist, and validation notes
 docs/WORKSPACE_AND_UI_BLUEPRINT.md  Consolidated product workspace and UI design
 docs/LOCAL_SELF_HOSTED_MEMORY_CONSOLE.md Local/self-hosted MemoryMesh console on top of Cognee
 docs/CONNECTED_AGENTS_MCP_API_SDK.md Connected-agent model for Cursor, Codex, Claude Code, OpenClaw, custom agents
-docs/COGNEE_POWERED_NEVER_FORGET_STRATEGY.md Cognee-powered never-forget workflow strategy
-docs/COGNEE_HACKATHON_SUBMISSION_GATE.md Final pre-submission proof checklist
 docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastructure and MemoryMesh product layer
 ```
 
@@ -316,7 +308,7 @@ docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastruct
 
 The MemoryMesh UI is documented in [`docs/UI_DESIGN_SPEC.md`](docs/UI_DESIGN_SPEC.md) and the full product workspace direction is captured in [`docs/WORKSPACE_AND_UI_BLUEPRINT.md`](docs/WORKSPACE_AND_UI_BLUEPRINT.md). The current UI uses a restrained, professional layout with two user paths: **Run an agent** and **Connect your agent**. It keeps local/cloud memory choices user-facing as memory locations, not backend plumbing.
 
-For judging, use the live React app connected to the API for the real proof run. The standalone HTML file is a visual preview only. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; production local mode requires `COGNEE_LOCAL_SERVICE_URL` or a compatible in-process Cognee SDK. Without a live memory backend, the UI should show a clear fallback state rather than silently claiming Cognee success.
+For judging, use the live React app connected to the API for the real proof run. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; production local mode requires `COGNEE_LOCAL_SERVICE_URL` or a compatible in-process Cognee SDK. Without a live memory backend, the UI should show a clear fallback state rather than silently claiming Cognee success.
 
 ## Winning demo narrative
 
@@ -353,17 +345,14 @@ The MemoryMesh UI intentionally opens with **no claimed proof result**, but it i
 4. start a session or copy a connection plan;
 5. inspect memory activity, recovery summary, outcome evidence, and forget controls after a run.
 
-The standalone HTML preview uses the same workspace layout and clearly shows API-offline/static-shell state until connected to the live API. The real hackathon proof should be run from the React app connected to the API.
+The real hackathon proof should be run from the React app connected to the API.
 
 ## Main UI wiring
 
 The main coding-agent app is the React/Vite workspace in `apps/coding-agent-demo/src`. It exposes the product pages, demo entry, memory-mode flows, built-in agents, and connected-agent paths used by the live deployment.
 
-## Standalone UI preview
-
-The package includes `memorymesh_workspace_unified_preview.html`, a self-contained user-facing workspace preview. It opens with no claimed result, shows built-in and connected-agent paths, and marks API-offline/static-shell state until connected to the live service.
 ## Latest UI correction - user-facing workspace redesign
 
 The workspace UI has been redesigned away from an internal proof console into a user-facing agent workspace. It now centers on a simple flow: run an agent or connect an existing one, enter a task, choose where the agent remembers the work, start a session, and review memory activity, recovery, and outcome. Build, Research, and Support are wired built-in agents; Cursor/Codex/Claude Code/OpenClaw/custom agents are shown through the connection path.
 
-See `docs/USER_FACING_WORKSPACE_REDESIGN.md` for the final UI intent and acceptance contract.
+See `docs/WORKSPACE_AND_UI_BLUEPRINT.md` for the UI intent and design direction.
