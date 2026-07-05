@@ -316,7 +316,7 @@ docs/COGNEE_VS_MEMORYMESH.md        Clear distinction between Cognee infrastruct
 
 The MemoryMesh UI is documented in [`docs/UI_DESIGN_SPEC.md`](docs/UI_DESIGN_SPEC.md) and the full product workspace direction is captured in [`docs/WORKSPACE_AND_UI_BLUEPRINT.md`](docs/WORKSPACE_AND_UI_BLUEPRINT.md). The current UI uses a restrained, professional layout with two user paths: **Run an agent** and **Connect your agent**. It keeps local/cloud memory choices user-facing as memory locations, not backend plumbing.
 
-For judging, use the live React app connected to the API for the real proof run. The standalone HTML file is a visual preview only. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; production local mode requires `COGNEE_LOCAL_SERVICE_URL` or a compatible in-process Cognee SDK. Without a live memory backend, the UI should show a clear fallback state rather than silently claiming Cognee success.
+For judging, use the live React app connected to the API for the real proof run. Cognee Cloud success requires valid `COGNEE_SERVICE_URL` and `COGNEE_API_KEY`; production local mode requires `COGNEE_LOCAL_SERVICE_URL` or a compatible in-process Cognee SDK. Without a live memory backend, the UI should show a clear fallback state rather than silently claiming Cognee success.
 
 ## Winning demo narrative
 
@@ -353,15 +353,12 @@ The MemoryMesh UI intentionally opens with **no claimed proof result**, but it i
 4. start a session or copy a connection plan;
 5. inspect memory activity, recovery summary, outcome evidence, and forget controls after a run.
 
-The standalone HTML preview uses the same workspace layout and clearly shows API-offline/static-shell state until connected to the live API. The real hackathon proof should be run from the React app connected to the API.
+The real hackathon proof should be run from the React app connected to the API.
 
 ## Main UI wiring
 
 The main coding-agent app is the React/Vite workspace in `apps/coding-agent-demo/src`. It exposes the product pages, demo entry, memory-mode flows, built-in agents, and connected-agent paths used by the live deployment.
 
-## Standalone UI preview
-
-The package includes `memorymesh_workspace_unified_preview.html`, a self-contained user-facing workspace preview. It opens with no claimed result, shows built-in and connected-agent paths, and marks API-offline/static-shell state until connected to the live service.
 ## Latest UI correction - user-facing workspace redesign
 
 The workspace UI has been redesigned away from an internal proof console into a user-facing agent workspace. It now centers on a simple flow: run an agent or connect an existing one, enter a task, choose where the agent remembers the work, start a session, and review memory activity, recovery, and outcome. Build, Research, and Support are wired built-in agents; Cursor/Codex/Claude Code/OpenClaw/custom agents are shown through the connection path.
