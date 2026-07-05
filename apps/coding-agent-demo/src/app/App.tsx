@@ -419,7 +419,7 @@ function AuthPanel({
           <p className="text-sm text-muted-foreground">
             {isSignup
               ? 'Create a cloud workspace for managed Cognee Cloud memory.'
-              : 'Use your MemoryMesh cloud workspace credentials.'}
+              : 'Use your MemoryMesh cloud workspace credentials. If this is your first time, create a workspace first.'}
           </p>
 
           {isSignup && (
@@ -590,14 +590,14 @@ export default function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(
-          isSignup
-            ? {
-                name: payload.name,
-                email: payload.email,
-                password: payload.password,
-                organisation_name: payload.organisationName || undefined,
-              }
-            : { email: payload.email, password: payload.password },
+              isSignup
+                ? {
+                    name: payload.name.trim(),
+                    email: payload.email.trim(),
+                    password: payload.password,
+                    organisation_name: payload.organisationName.trim() || undefined,
+                  }
+                : { email: payload.email.trim(), password: payload.password },
         ),
       });
       const body = await response.json().catch(() => ({}));

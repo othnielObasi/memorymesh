@@ -1,6 +1,8 @@
 import asyncio
 from types import SimpleNamespace
 
+from fastapi import HTTPException
+
 from app.auth_api import LoginRequest, SignupRequest, login, signup
 from app.api import agent_run_response
 from app.config import Settings
@@ -45,6 +47,20 @@ def test_signup_login_and_session_resolve_tenant_context():
         assert principal.organisation_id == signup_response.user.tenant.organisation_id
         assert principal.workspace_id == signup_response.user.tenant.workspace_id
         assert principal.role == "owner"
+
+    asyncio.run(run())
+
+
+def test_login_missing_account_explains_create_workspace():
+    async def run():
+        store, settings = make_store()
+        try:
+            await login(LoginRequest(email="missing@example.com", password="correct-password"), store, settings)
+        except HTTPException as exc:
+            assert exc.status_code == 401
+            assert "Create a new workspace first" in str(exc.detail)
+        else:  # pragma: no cover - defensive assertion
+            raise AssertionError("login should reject unknown accounts")
 
     asyncio.run(run())
 

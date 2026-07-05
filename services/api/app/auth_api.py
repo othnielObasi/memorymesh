@@ -211,7 +211,12 @@ async def signup(payload: SignupRequest, store: PostgresStore = Depends(get_stor
 async def login(payload: LoginRequest, store: PostgresStore = Depends(get_store), settings: Settings = Depends(get_settings)):
     email = _normalise_email(payload.email)
     user = await store.find_one_by("users", {"email_lower": email})
-    if not user or user.get("status", "active") != "active" or not verify_password(payload.password, user.get("password_hash", ""), settings):
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No MemoryMesh cloud account exists for this email. Create a new workspace first.",
+        )
+    if user.get("status", "active") != "active" or not verify_password(payload.password, user.get("password_hash", ""), settings):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     await store.update_one("users", {"_id": user["_id"]}, {"$set": {"last_login_at": utc_now()}})
     await create_audit_log(
