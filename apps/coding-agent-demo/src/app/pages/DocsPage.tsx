@@ -5,6 +5,7 @@ import {
   Check,
   CheckCircle2,
   Code2,
+  Database,
   Copy,
   KeyRound,
   Package,
@@ -20,7 +21,7 @@ interface Props {
   onEnterWorkspace: () => void;
 }
 
-type GuideKey = 'quick' | 'mcp' | 'api' | 'sdk' | 'memory' | 'security';
+type GuideKey = 'quick' | 'modes' | 'mcp' | 'api' | 'sdk' | 'memory' | 'security';
 
 type Step = {
   title: string;
@@ -43,6 +44,17 @@ type Guide = {
     language: string;
     value: string;
   }[];
+};
+
+type ModeFlow = {
+  key: string;
+  label: string;
+  backend: string;
+  bestFor: string;
+  dataLocation: string;
+  llmPath: string;
+  flow: string[];
+  interactions: string[];
 };
 
 const MCP_SNIPPET = `{
@@ -152,6 +164,67 @@ const matches = await client.recall({
   topK: 3
 });`;
 
+const MODE_STATUS_SNIPPET = `# Check the exact backend before a run.
+curl "$API/api/memory/status?backend=offline_mirror&probe=true"
+curl "$API/api/memory/status?backend=local_cognee&probe=true"
+curl "$API/api/memory/status?backend=cognee_cloud&probe=true"
+
+# Select the backend per request.
+curl -X POST "$API/api/memory/remember" \\
+  -H "Content-Type: application/json" \\
+  -H "X-MemoryMesh-API-Key: $MEMORYMESH_API_KEY" \\
+  -d '{
+    "backend": "local_cognee",
+    "dataset": "current-repo",
+    "session_id": "auth-refactor",
+    "text": "Dashboard RBAC guard lives in central middleware."
+  }'`;
+
+const MODE_FLOWS: ModeFlow[] = [
+  {
+    key: 'demo',
+    label: 'Demo memory',
+    backend: 'offline_mirror',
+    bestFor: 'Trying the workflow with no account, no API key, and deterministic sample memory.',
+    dataLocation: 'MemoryMesh PostgreSQL event log only; temporary demo/session data.',
+    llmPath: 'No Cognee and no LLM. Responses are deterministic so demos remain available without secrets.',
+    flow: ['UI / SDK / MCP', 'MemoryMesh API', 'Backend router', 'Offline mirror', 'PostgreSQL receipt'],
+    interactions: [
+      'The client sends remember, recall, improve, forget, or run requests to the API.',
+      'The API routes to offline_mirror and records the event for inspection.',
+      'The receipt proves the lifecycle shape, but it is not the production memory engine.',
+    ],
+  },
+  {
+    key: 'local',
+    label: 'Local memory',
+    backend: 'local_cognee',
+    bestFor: 'Private repo, customer, incident, or research memory that must stay on owned infrastructure.',
+    dataLocation: 'Self-hosted Cognee plus MemoryMesh PostgreSQL; source context stays inside the private deployment.',
+    llmPath: 'Open-source Cognee calls the configured local/owned LLM route, commonly OpenAI for reasoning and local hash embeddings by default.',
+    flow: ['UI / SDK / MCP', 'MemoryMesh API', 'Backend router', 'COGNEE_LOCAL_SERVICE_URL', 'Open-source Cognee graph', 'PostgreSQL receipt'],
+    interactions: [
+      'The API forwards memory operations to the private Cognee service.',
+      'Cognee cognifies remembered text, builds graph context, and answers recall.',
+      'MemoryMesh stores receipts, run state, checkpoints, and backend status for audit.',
+    ],
+  },
+  {
+    key: 'cloud',
+    label: 'Cloud memory',
+    backend: 'cognee_cloud',
+    bestFor: 'Teams that need shared organisation memory, managed operations, backups, and API access from anywhere.',
+    dataLocation: 'Managed Cognee Cloud tenant plus MemoryMesh PostgreSQL receipt/event log.',
+    llmPath: 'Cognee Cloud handles managed graph and LLM-side processing; MemoryMesh authenticates with the tenant URL and API key.',
+    flow: ['UI / SDK / MCP', 'MemoryMesh API', 'Backend router', 'COGNEE_SERVICE_URL', 'Cognee Cloud', 'PostgreSQL receipt'],
+    interactions: [
+      'The API signs requests with the Cognee Cloud key and calls the tenant API.',
+      'Cognee Cloud handles durable memory operations and managed retrieval.',
+      'MemoryMesh keeps the same receipt, SDK, MCP, and API contract as local mode.',
+    ],
+  },
+];
+
 const GUIDES: Guide[] = [
   {
     key: 'quick',
@@ -189,6 +262,44 @@ const GUIDES: Guide[] = [
       'You can explain why MemoryMesh stores run memory instead of only returning a chat response.',
       'You have a receipt-backed run to inspect.',
     ],
+  },
+  {
+    key: 'modes',
+    title: 'How memory modes work',
+    label: 'Memory modes',
+    eyebrow: 'Demo, local, cloud',
+    summary: 'Trace a request from UI, SDK, or MCP through the MemoryMesh API, backend router, Cognee or offline backend, and the receipt event log.',
+    icon: Database,
+    color: '#22d3ee',
+    answers: [
+      'Which backend handles each memory mode?',
+      'Where does data live in demo, local, and cloud?',
+      'How does the API interact with Cognee and the receipt log?',
+    ],
+    steps: [
+      {
+        title: 'Every client calls the same API surface',
+        body: 'The workspace UI, TypeScript SDK, Python SDK, MCP server, and external agents all call the MemoryMesh API. The client can pass backend per request, or the server can use MEMORYMESH_MEMORY_BACKEND.',
+      },
+      {
+        title: 'The backend router chooses where memory lives',
+        body: 'offline_mirror is the keyless demo path, local_cognee calls a self-hosted Cognee service through COGNEE_LOCAL_SERVICE_URL, and cognee_cloud calls a managed Cognee tenant through COGNEE_SERVICE_URL plus COGNEE_API_KEY.',
+      },
+      {
+        title: 'Cognee handles durable memory in local and cloud',
+        body: 'Local mode uses open-source Cognee on your infrastructure. Cloud mode uses Cognee Cloud. In both modes, remember, recall, improve, and forget keep the same MemoryMesh contract.',
+      },
+      {
+        title: 'MemoryMesh records receipts around the engine',
+        body: 'The API persists memory events, run receipts, checkpoints, and backend status in PostgreSQL so teams can verify what was remembered, what was recalled, and whether fallback was used.',
+      },
+    ],
+    done: [
+      'You can identify the active backend from status and receipt fields.',
+      'You know whether the run used offline_mirror, local_cognee, or cognee_cloud.',
+      'You can explain where Cognee, LLM reasoning, and PostgreSQL receipts fit.',
+    ],
+    code: [{ label: 'backend-probes.sh', language: 'Shell', value: MODE_STATUS_SNIPPET }],
   },
   {
     key: 'mcp',
@@ -585,6 +696,83 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
                       ))}
                     </div>
                   </section>
+
+                  {activeGuide.key === 'modes' && (
+                    <section className="space-y-6">
+                      <div>
+                        <p className="mb-3 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Backend interaction flow</p>
+                        <div className="rounded-xl border border-border bg-[#090d16] p-5">
+                          <div className="grid gap-3 text-sm text-[#91a3cc] md:grid-cols-[1fr_auto_1fr_auto_1fr] md:items-center">
+                            <div className="rounded-lg border border-border bg-muted/10 p-4">
+                              <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Client</p>
+                              <p className="font-semibold text-foreground">UI, SDK, MCP, or agent host</p>
+                            </div>
+                            <ArrowRight className="hidden h-4 w-4 text-primary md:block" />
+                            <div className="rounded-lg border border-border bg-muted/10 p-4">
+                              <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">MemoryMesh API</p>
+                              <p className="font-semibold text-foreground">Auth, tenant context, run state, backend routing</p>
+                            </div>
+                            <ArrowRight className="hidden h-4 w-4 text-primary md:block" />
+                            <div className="rounded-lg border border-border bg-muted/10 p-4">
+                              <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Memory backend</p>
+                              <p className="font-semibold text-foreground">Offline mirror, local Cognee, or Cognee Cloud</p>
+                            </div>
+                          </div>
+                          <div className="mt-4 rounded-lg border border-border bg-card/60 p-4 text-sm leading-relaxed text-[#91a3cc]">
+                            Every successful operation also writes a receipt or lifecycle event to PostgreSQL, so the UI and external systems can verify backend, provider, fallback status, dataset, session, and operation result.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 xl:grid-cols-3">
+                        {MODE_FLOWS.map((mode) => (
+                          <div key={mode.key} className="rounded-xl border border-border bg-muted/10 p-5">
+                            <div className="mb-5">
+                              <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">{mode.backend}</p>
+                              <h3 className="text-lg font-semibold text-foreground">{mode.label}</h3>
+                            </div>
+
+                            <div className="mb-5 space-y-2">
+                              {mode.flow.map((step, index) => (
+                                <div key={`${mode.key}-${step}`} className="flex items-center gap-2">
+                                  <div className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm text-[#91a3cc]">
+                                    {step}
+                                  </div>
+                                  {index < mode.flow.length - 1 && <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary/70" />}
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="space-y-4 border-t border-border pt-4 text-sm leading-relaxed text-[#91a3cc]">
+                              <div>
+                                <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Best for</p>
+                                <p>{mode.bestFor}</p>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Data location</p>
+                                <p>{mode.dataLocation}</p>
+                              </div>
+                              <div>
+                                <p className="mb-1 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">LLM path</p>
+                                <p>{mode.llmPath}</p>
+                              </div>
+                              <div>
+                                <p className="mb-2 text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Backend interaction</p>
+                                <ul className="space-y-2">
+                                  {mode.interactions.map((item) => (
+                                    <li key={item} className="flex gap-2">
+                                      <CheckCircle2 className="mt-1 h-3.5 w-3.5 shrink-0 text-primary" />
+                                      <span>{item}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
 
                   <section className="space-y-6">
                     <p className="text-xs font-mono-ui uppercase tracking-widest text-muted-foreground">Implementation guide</p>
