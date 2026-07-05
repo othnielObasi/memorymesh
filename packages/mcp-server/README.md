@@ -48,7 +48,7 @@ For a deployed MemoryMesh API using an API key:
       "command": "npx",
       "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
-        "MM_API_URL": "https://api-two-blue-75.vercel.app/api",
+        "MM_API_URL": "http://149.28.238.73:8000/api",
         "MM_API_KEY": "your-api-key",
         "MM_API_KEY_HEADER": "X-MemoryMesh-API-Key",
         "MM_AGENT_ID": "cursor-primary",

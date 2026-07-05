@@ -36,7 +36,7 @@ import os
 from memorymesh import MemoryMeshClient
 
 client = MemoryMeshClient(
-    base_url=os.environ.get("MEMORYMESH_API_URL", "https://api-two-blue-75.vercel.app"),
+    base_url=os.environ.get("MEMORYMESH_API_URL", "http://149.28.238.73:8000"),
     api_key=os.environ.get("MEMORYMESH_API_KEY"),
     default_memory_backend="cognee_cloud",
 )
@@ -228,4 +228,4 @@ except MemoryMeshError as error:
 
 - Repository: https://github.com/othnielObasi/memorymesh
 - Documentation: https://github.com/othnielObasi/memorymesh/tree/main/docs
-- Live API used in examples: https://api-two-blue-75.vercel.app
+- Live API used in examples: http://149.28.238.73:8000

@@ -47,7 +47,7 @@ Or run with `npx` from an MCP client:
       "command": "npx",
       "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
-        "MM_API_URL": "https://api-two-blue-75.vercel.app/api",
+        "MM_API_URL": "http://149.28.238.73:8000/api",
         "MM_MEMORY_BACKEND": "cognee_cloud",
         "MM_PROJECT": "current-repo",
         "MM_AGENT_ID": "cursor-primary"
@@ -106,7 +106,7 @@ Python:
 from memorymesh import MemoryMeshClient
 
 client = MemoryMeshClient(
-    base_url="https://api-two-blue-75.vercel.app",
+    base_url="http://149.28.238.73:8000",
     default_memory_backend="cognee_cloud",
 )
 

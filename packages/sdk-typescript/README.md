@@ -38,7 +38,7 @@ Requirements:
 import { MemoryMeshClient } from "@memorymsh/sdk";
 
 const client = new MemoryMeshClient({
-  baseUrl: process.env.MEMORYMESH_API_URL ?? "https://api-two-blue-75.vercel.app",
+  baseUrl: process.env.MEMORYMESH_API_URL ?? "http://149.28.238.73:8000",
   apiKey: process.env.MEMORYMESH_API_KEY,
   defaultMemoryBackend: "cognee_cloud",
 });
@@ -228,4 +228,4 @@ try {
 
 - Repository: https://github.com/othnielObasi/memorymesh
 - Documentation: https://github.com/othnielObasi/memorymesh/tree/main/docs
-- Live API used in examples: https://api-two-blue-75.vercel.app
+- Live API used in examples: http://149.28.238.73:8000

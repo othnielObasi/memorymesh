@@ -34,7 +34,7 @@ https://memorymesh-two.vercel.app
 
 API:
 
-https://api-two-blue-75.vercel.app
+http://149.28.238.73:8000
 
 ### YouTube video demo link
 

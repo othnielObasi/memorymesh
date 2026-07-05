@@ -51,7 +51,7 @@ const MCP_SNIPPET = `{
       "command": "npx",
       "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
-        "MM_API_URL": "https://api-two-blue-75.vercel.app/api",
+        "MM_API_URL": "http://149.28.238.73:8000/api",
         "MM_API_KEY": "your-memorymesh-api-key",
         "MM_API_KEY_HEADER": "X-MemoryMesh-API-Key",
         "MM_MEMORY_BACKEND": "cognee_cloud",
@@ -62,7 +62,7 @@ const MCP_SNIPPET = `{
 }`;
 
 const API_SNIPPET = `// Create a scoped service key after bootstrap.
-await fetch("https://api-two-blue-75.vercel.app/api/enterprise/api-keys", {
+await fetch("http://149.28.238.73:8000/api/enterprise/api-keys", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -75,13 +75,13 @@ await fetch("https://api-two-blue-75.vercel.app/api/enterprise/api-keys", {
 });
 
 // Verify the key resolves to the expected tenant and scopes.
-await fetch("https://api-two-blue-75.vercel.app/api/enterprise/context", {
+await fetch("http://149.28.238.73:8000/api/enterprise/context", {
   headers: {
     "X-MemoryMesh-API-Key": process.env.MEMORYMESH_API_KEY
   }
 });`;
 
-const REST_SNIPPET = `const receipt = await fetch("https://api-two-blue-75.vercel.app/api/agents/run", {
+const REST_SNIPPET = `const receipt = await fetch("http://149.28.238.73:8000/api/agents/run", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -105,7 +105,7 @@ npx -y @memorymsh/mcp-server`;
 const TS_SDK_SNIPPET = `import { MemoryMeshClient } from "@memorymsh/sdk";
 
 const client = new MemoryMeshClient({
-  baseUrl: "https://api-two-blue-75.vercel.app",
+  baseUrl: "http://149.28.238.73:8000",
   apiKey: process.env.MEMORYMESH_API_KEY,
   defaultMemoryBackend: "cognee_cloud"
 });
@@ -123,7 +123,7 @@ const receipt = await client.runAgent({
 const PY_SDK_SNIPPET = `from memorymesh import MemoryMeshClient
 
 client = MemoryMeshClient(
-    base_url="https://api-two-blue-75.vercel.app",
+    base_url="http://149.28.238.73:8000",
     api_key=os.environ["MEMORYMESH_API_KEY"],
     default_memory_backend="cognee_cloud",
 )

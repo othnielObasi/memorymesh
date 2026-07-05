@@ -59,7 +59,7 @@ client = MemoryMeshClient(
 import { MemoryMeshClient } from "@memorymsh/sdk";
 
 const client = new MemoryMeshClient({
-  baseUrl: process.env.MEMORYMESH_API_URL ?? "https://api-two-blue-75.vercel.app",
+  baseUrl: process.env.MEMORYMESH_API_URL ?? "http://149.28.238.73:8000",
   apiKey: process.env.MEMORYMESH_API_KEY,
   defaultMemoryBackend: "cognee_cloud",
 });
@@ -83,7 +83,7 @@ import os
 from memorymesh import MemoryMeshClient
 
 client = MemoryMeshClient(
-    base_url=os.environ.get("MEMORYMESH_API_URL", "https://api-two-blue-75.vercel.app"),
+    base_url=os.environ.get("MEMORYMESH_API_URL", "http://149.28.238.73:8000"),
     api_key=os.environ.get("MEMORYMESH_API_KEY"),
     default_memory_backend="cognee_cloud",
 )
@@ -176,7 +176,7 @@ For MCP-capable clients:
       "command": "npx",
       "args": ["-y", "@memorymsh/mcp-server"],
       "env": {
-        "MM_API_URL": "https://api-two-blue-75.vercel.app/api",
+        "MM_API_URL": "http://149.28.238.73:8000/api",
         "MM_MEMORY_BACKEND": "cognee_cloud",
         "MM_PROJECT": "current-repo"
       }
