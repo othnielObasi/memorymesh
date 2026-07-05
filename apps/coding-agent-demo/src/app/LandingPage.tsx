@@ -2,7 +2,8 @@ import { useState, useEffect, type ReactNode } from 'react';
 import {
   ArrowRight, ChevronRight, Shield, Cloud, Zap,
   RefreshCw, Globe, Lock, Terminal, GitBranch,
-  Brain, Database, CheckCircle2, Circle
+  Brain, Database, CheckCircle2, Circle, Code2,
+  Users, Building2, Network
 } from 'lucide-react';
 import { ProductPage } from './pages/ProductPage';
 import { AgentsPage } from './pages/AgentsPage';
@@ -19,7 +20,7 @@ interface LandingPageProps {
 export type PageType = 'home' | 'product' | 'agents' | 'memory' | 'pricing' | 'docs';
 
 const PAGE_LINKS: Array<{ label: string; page: PageType }> = [
-  { label: 'Product', page: 'product' },
+  { label: 'Solution', page: 'product' },
   { label: 'Agents', page: 'agents' },
   { label: 'Memory', page: 'memory' },
   { label: 'Pricing', page: 'pricing' },
@@ -101,6 +102,29 @@ const ACTIVITY_ITEMS = [
   { type: 'remember', label: 'remember', text: 'Saved component architecture decisions', color: '#818cf8' },
   { type: 'recall',   label: 'recall',   text: 'Loaded authentication flow from prior session', color: '#22d3ee' },
   { type: 'improve',  label: 'improve',  text: 'Updated dependency map with new packages', color: '#34d399' },
+];
+
+const SOLUTION_USE_CASES = [
+  {
+    icon: Code2,
+    title: 'Developers using Codex, Cursor, or Claude Code',
+    body: 'Keep repo decisions, failed attempts, source trails, and recovery checkpoints available when a coding session restarts or moves between tools.',
+  },
+  {
+    icon: Users,
+    title: 'Engineering teams sharing agent work',
+    body: 'Turn one person\'s agent run into a reusable team memory with a receipt, context map, and verified next action.',
+  },
+  {
+    icon: Building2,
+    title: 'Support, research, and operations workflows',
+    body: 'Preserve investigations across tickets, documents, incidents, and web research so the next run starts with the useful context already loaded.',
+  },
+  {
+    icon: Network,
+    title: 'Cognee builders and partners',
+    body: 'Show Cognee memory as a visible product workflow: remember, recall, improve, forget, receipts, and local or cloud deployment paths.',
+  },
 ];
 
 function ActivityFeed() {
@@ -516,6 +540,52 @@ export function LandingPage({ onEnterWorkspace, onSignIn, onGetStarted }: Landin
       </section>
 
       {/* ── How it works ────────────────────────────────────── */}
+      <section className="px-6 py-24 border-t border-border">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-14 items-start">
+            <div>
+              <p className="text-xs font-mono-ui text-primary uppercase tracking-widest mb-3">Solution</p>
+              <h2 className="font-display text-4xl md:text-5xl text-foreground leading-tight mb-6">
+                Durable work memory for agents that do real work.
+              </h2>
+              <p className="text-muted-foreground leading-relaxed mb-6">
+                LLMs answer one request at a time. Real agent work spans sessions, tools, codebases,
+                tickets, research sources, and human decisions. MemoryMesh captures that work as
+                durable memory so an agent can continue, recover, improve, and prove what happened.
+              </p>
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                <p className="text-sm text-foreground font-medium mb-2">How it relates to Cognee</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Cognee is the memory engine. MemoryMesh is the workflow layer that makes Cognee
+                  usable and visible for developers, teams, and demos: local Cognee, Cognee Cloud,
+                  run receipts, Context Maps, SDKs, MCP, and clear proof of remembered work.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('product')}
+                className="inline-flex items-center gap-2 text-sm text-primary border border-primary/30 px-5 py-2.5 rounded-lg hover:bg-primary/8 transition-all mt-6"
+              >
+                Read the solution
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {SOLUTION_USE_CASES.map(item => (
+                <div key={item.title} className="rounded-xl border border-border bg-card p-5">
+                  <div className="w-9 h-9 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+                    <item.icon className="w-4 h-4 text-primary" />
+                  </div>
+                  <h3 className="font-semibold text-foreground text-sm mb-2">{item.title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section className="px-6 py-24 border-t border-border">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">

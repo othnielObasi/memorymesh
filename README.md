@@ -15,6 +15,11 @@ The project is designed to be strong on **both Cognee hackathon grand-prize trac
 
 The same real agent workflow runs on both backends.
 
+Submission guides:
+
+- **Cognee Cloud track:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
+- **Open-source Cognee track:** [`docs/SUBMISSION_OPEN_SOURCE.md`](docs/SUBMISSION_OPEN_SOURCE.md)
+
 ## What MemoryMesh is
 
 MemoryMesh is not a replacement for Cognee, Cursor, Codex, Claude Code, OpenClaw, or a company's existing AI system. It sits around agents as a recoverable work-session layer.
@@ -31,6 +36,35 @@ People can use MemoryMesh in two ways:
 |---|---|---|
 | **Run an agent** | Users/judges who want a working product experience | Open MemoryMesh, choose Build Assistant, enter a task, choose memory location, start a session, recover context, review outcome. |
 | **Connect your agent** | Teams already using Cursor, Codex, Claude Code, OpenClaw, or internal agents | The external agent calls MemoryMesh through MCP/API/SDK to remember, recall, improve, and forget work memory. |
+
+## Solution and use cases
+
+The core problem is not that an LLM cannot answer a question. The problem is that useful agent work is usually trapped in one session: the agent reads a codebase, follows sources, tries fixes, hits failures, makes decisions, and then that earned context disappears when the session changes.
+
+MemoryMesh turns that earned context into durable work memory:
+
+| User | Pain point | MemoryMesh value |
+|---|---|---|
+| Developers using Codex, Cursor, Claude Code, OpenClaw, or custom agents | Every new session needs repo re-orientation and repeats earlier mistakes. | Store repo decisions, source trails, test failures, attempted fixes, and recovery checkpoints so the next agent starts from known context. |
+| Engineering teams | One person's agent run is hard for another person to trust or continue. | Produce receipts, Context Maps, and memory operations that show what happened and what should happen next. |
+| Support and operations teams | Tickets and incidents lose history across shifts, tools, and escalations. | Preserve root causes, customer context, incident timelines, failed remediations, and verified recovery steps. |
+| Research and knowledge teams | Sources and reasoning get flattened into summaries that are hard to verify later. | Store evidence, citations, decisions, and recallable research context backed by Cognee memory. |
+| Cognee builders and partners | Cognee's memory engine is powerful, but users need to see how it helps real workflows. | MemoryMesh makes Cognee visible through demo, local, and cloud product flows, plus SDK, MCP, API, receipts, and Context Maps. |
+
+The simplest product statement is:
+
+```text
+Cognee is the memory engine.
+MemoryMesh is the agent workflow layer that makes Cognee memory usable, visible, and valuable.
+```
+
+### Three adoption paths
+
+| Path | What it proves | When to use it |
+|---|---|---|
+| **Demo memory** | A no-login preview of the memory workflow with temporary labelled data. | First evaluation, judging, product walkthroughs, and developer onboarding. |
+| **Local memory** | Open-source/self-hosted Cognee can power private agent memory. | Private codebases, regulated data, internal support queues, and offline/local development. |
+| **Cloud memory** | Cognee Cloud can power shared persistent team memory. | Team workspaces, managed memory, shared receipts, API keys, tenant controls, and production deployments. |
 
 ## Workspace experience
 
@@ -76,8 +110,8 @@ MemoryMesh is not a generic chatbot and not a code-only product. It is a reusabl
 The UI keeps agents visible while remaining run-first. It opens with no fake completed result, but it clearly shows what the user can run or connect:
 
 - Build Assistant - live working proof agent.
-- Research Assistant - future knowledge-work lane.
-- Support Assistant - future customer-workflow lane.
+- Research Assistant - live research and source-trail lane.
+- Support Assistant - live ticket and customer-memory lane.
 - Ops Assistant - future operational-workflow lane.
 - Cursor, Codex, Claude Code, OpenClaw, and custom agents - connected-agent paths through MCP/API/SDK.
 
@@ -148,12 +182,13 @@ For development without live keys, MemoryMesh keeps deterministic local fallback
 ```bash
 npm install
 cp .env.oss.example .env
-python scripts/run_open_source_cognee_local.py
+npm run demo:oss:local
 ```
 
 The no-Docker runner starts a local open-source Cognee service and MemoryMesh API,
 sets `COGNEE_ALLOW_OFFLINE_FALLBACK=false`, runs the strict proof, and shuts the
-processes down. A passing run proves `local_cognee` with `fallback_used=false`.
+processes down. A passing run proves `local_cognee` with `fallback_used=false`
+and writes `.memorymesh-local/open-source-proof.json` for judge-readable evidence.
 
 For Docker-based local hosting, run:
 

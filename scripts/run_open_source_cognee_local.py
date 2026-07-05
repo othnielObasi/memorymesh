@@ -12,12 +12,14 @@ the script fails if the open-source Cognee path is not actually used.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -180,7 +182,47 @@ def main() -> int:
             "--repo",
             args.repo,
         ]
-        subprocess.run(proof, cwd=str(ROOT), check=True)
+        proof_result = subprocess.run(proof, cwd=str(ROOT), capture_output=True, text=True)
+        if proof_result.stdout:
+            print(proof_result.stdout)
+        if proof_result.stderr:
+            print(proof_result.stderr, file=sys.stderr)
+        if proof_result.returncode != 0:
+            raise subprocess.CalledProcessError(proof_result.returncode, proof, proof_result.stdout, proof_result.stderr)
+
+        proof_path = ROOT / ".memorymesh-local" / "open-source-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "track": "Track 1: Best Use of Cognee Open Source",
+                    "project": "MemoryMesh Local",
+                    "backend": "local_cognee",
+                    "provider": "Open-source Cognee",
+                    "fallback_allowed": False,
+                    "fallback_used": False,
+                    "verified_at": datetime.now(timezone.utc).isoformat(),
+                    "repo": args.repo,
+                    "command": " ".join(proof),
+                    "local_cognee_service": f"http://127.0.0.1:{args.cognee_port}",
+                    "memorymesh_api": f"http://127.0.0.1:{args.api_port}",
+                    "run_dir": str(run_dir),
+                    "logs_dir": str(LOG_DIR),
+                    "verified_capabilities": [
+                        "Open-source Cognee service starts locally",
+                        "MemoryMesh API routes memory to local_cognee",
+                        "COGNEE_ALLOW_OFFLINE_FALLBACK=false",
+                        "remember returns fallback_used=false",
+                        "recall returns fallback_used=false",
+                        "coding-agent recovery demo uses local_cognee",
+                        "forget cleanup succeeds",
+                    ],
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        print(f"Open-source Cognee proof written to {proof_path}")
         return 0
     finally:
         terminate(processes)

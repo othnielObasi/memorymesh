@@ -62,6 +62,16 @@ Success means:
 - `fallback_allowed=false`
 - lifecycle operations return `fallback_used=false`
 
+The runner also writes a concise proof artifact:
+
+```text
+.memorymesh-local/open-source-proof.json
+```
+
+This file is intended for judges and reviewers. It records the backend,
+provider, fallback-disabled status, service URLs, run directory, log directory,
+and verified capabilities.
+
 ### Docker local proof
 
 ```bash
