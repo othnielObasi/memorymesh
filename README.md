@@ -173,72 +173,180 @@ Secrets are backend-only. Do not place Cognee or LLM keys in `apps/coding-agent-
 
 For development without live keys, MemoryMesh keeps deterministic local fallback enabled so the UI and API contracts can still be tested.
 
-## Quickstart: Open-source Cognee mode
+# Deployment
+
+MemoryMesh can run three ways. Pick based on whether you want a quick local dev loop, a **self-hosted** production instance you fully own, or **managed** Cognee Cloud memory.
+
+| Path | Persistence | Cognee | Best for |
+|---|---|---|---|
+| Local development | in-memory or local Postgres | offline mirror / local | Hacking on the code |
+| **Self-hosted (Docker Compose)** | Postgres container (durable) | **open-source Cognee** + optional Cloud | Production you own, private data, all three modes |
+| Managed (Cognee Cloud + Vercel/serverless) | external managed Postgres | Cognee Cloud | Zero-infra teams, quick hosted demo |
+
+### Prerequisites
+
+- Node.js 18+ and Python 3.12 (for local dev)
+- Docker + Docker Compose plugin (for self-hosted)
+- An LLM key for real Cognee reasoning: `OPENAI_API_KEY` (Cognee Cloud additionally needs `COGNEE_SERVICE_URL` + `COGNEE_API_KEY`)
+
+---
+
+## 1. Local development
 
 ```bash
-npm install
+npm install                     # workspaces: apps/* and packages/*
 cp .env.oss.example .env
-npm run demo:oss:local
+
+# Backend API (needs a Python venv with services/api/requirements.txt)
+python3 -m venv .venv && . .venv/bin/activate
+pip install -r services/api/requirements.txt
+npm run api:dev                 # FastAPI on http://127.0.0.1:8000
+
+# Frontend (separate shell)
+VITE_MEMORYMESH_API_BASE_URL=http://127.0.0.1:8000 npm run dev:agent   # UI on :5173
 ```
 
-The no-Docker runner starts a local open-source Cognee service and MemoryMesh API,
-sets `COGNEE_ALLOW_OFFLINE_FALLBACK=false`, runs the strict proof, and shuts the
-processes down. A passing run proves `local_cognee` with `fallback_used=false`
-and writes `.memorymesh-local/open-source-proof.json` for judge-readable evidence.
+Keyless option: start the API with `MEMORYMESH_DEV_INMEMORY_STORE=true` and `MEMORYMESH_MEMORY_BACKEND=offline_mirror` to run with no database and no Cognee keys (data is not persisted).
 
-For Docker-based local hosting, run:
+No-Docker open-source Cognee proof (starts a local Cognee service + API, disables fallback, runs the strict proof, writes `.memorymesh-local/open-source-proof.json`):
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up --build
+npm run demo:oss:local          # = python scripts/run_open_source_cognee_local.py
 ```
 
-The Docker override starts a separate `cognee-local` container and points the API at
-`http://cognee-local:8000`. The same service is exposed to the host at
-`http://127.0.0.1:8001` for manual checks. This keeps the heavy open-source
-Cognee runtime out of the Vercel API bundle while still giving local/self-hosted
-deployments a real Cognee backend.
+---
 
-For the self-hosted operator UI, open the coding-agent workspace dev server with the
-local-mode flag:
+## 2. Self-hosted full stack (Docker Compose) — recommended
 
-```text
-http://127.0.0.1:5173/?mode=local
-```
-
-Local mode is intentionally separate from the cloud/product shell. It shows local Cognee status, recent memory events, manual recall, and a local recovery test without Product, Pricing, or Docs navigation.
-
-Then run the smoke/demo script:
+This runs the **entire product on one machine** with durable Postgres and open-source Cognee. This is the path that makes **all three memory modes** work with real persistence.
 
 ```bash
-./scripts/demo_open_source_cognee.sh
+git clone https://github.com/othnielObasi/memorymesh.git
+cd memorymesh
+cp .env.oss.example .env
 ```
 
-Or manually:
+Edit `.env` and set at least:
+
+```env
+SIGNING_SECRET=<random-strong-secret>        # e.g. openssl rand -hex 32
+OPENAI_API_KEY=sk-...                          # LLM for Cognee cognify/recall
+# Optional: also enable Cognee Cloud as a selectable backend
+COGNEE_SERVICE_URL=https://your-tenant.cognee.ai
+COGNEE_API_KEY=your-cognee-cloud-api-key
+```
+
+Bring up the full stack (base + the open-source Cognee override):
 
 ```bash
-python scripts/run_hackathon_demo.py --backend local_cognee
+docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up -d --build
 ```
 
-## Quickstart: Cognee Cloud mode
+Services started:
+
+| Service | Port | Notes |
+|---|---|---|
+| `postgres` | 5432 | Durable store (named volume `postgres_data`) — accounts/memory persist |
+| `api` | 8000 | FastAPI runtime; `DATABASE_URL` defaults to the `postgres` service |
+| `cognee-local` | 8001 | Open-source Cognee service; API points at `http://cognee-local:8000` |
+| `recovery-worker` | – | Background run-recovery worker |
+| `coding-agent-demo` | 5173 | Agent workspace UI |
+| `console` | 5174 | Optional marketing/enterprise console |
+
+### Exposing it on a public host (IP or domain)
+
+The browser UI must know the **public** API URL, and the API must allow the UI origin for CORS. Add a `docker-compose.deploy.yml` next to the others (replace `YOUR_HOST`):
+
+```yaml
+services:
+  api:
+    environment:
+      FRONTEND_ORIGIN: "http://YOUR_HOST:5173"
+  coding-agent-demo:
+    environment:
+      VITE_MEMORYMESH_API_BASE_URL: "http://YOUR_HOST:8000"
+  console:
+    profiles: ["disabled"]        # omit to skip the console UI entirely
+```
+
+Then start with all three files:
 
 ```bash
-npm install
-cp .env.cloud.example .env
-# Edit .env and set COGNEE_SERVICE_URL and COGNEE_API_KEY.
-docker compose up --build
+docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml -f docker-compose.deploy.yml up -d --build
 ```
 
-Then run:
+### Verify the deployment
 
 ```bash
-./scripts/demo_cognee_cloud.sh
+curl http://YOUR_HOST:8000/health                                      # {"status":"ok","postgres_connected":true}
+curl "http://YOUR_HOST:8000/api/memory/status?backend=local_cognee&probe=true"   # ready:true
+curl "http://YOUR_HOST:8000/api/memory/status?backend=cognee_cloud&probe=true"   # ready:true if cloud keys set
+# account creation persists across restarts (real Postgres):
+curl -X POST http://YOUR_HOST:8000/api/auth/signup -H 'Content-Type: application/json' \
+  -d '{"name":"You","email":"you@example.com","password":"password123"}'
 ```
 
-Or manually:
+### Operating
 
 ```bash
-python scripts/run_hackathon_demo.py --backend cognee_cloud
+docker compose ps                 # status
+docker compose logs -f api        # tail a service
+docker compose restart api        # restart one service
+docker compose down               # stop (add -v to also drop the Postgres volume)
 ```
+
+### Production hardening
+
+- Put a TLS reverse proxy (Caddy/Nginx) in front so the app is served over **HTTPS on a domain**, then set `VITE_MEMORYMESH_API_BASE_URL`/`FRONTEND_ORIGIN` to the `https://` domain.
+- Set `AUTH_REQUIRED=true` and a strong `SIGNING_SECRET`; restrict a firewall to 80/443 only.
+- Back up the `postgres_data` and `cognee_local_data` volumes.
+
+---
+
+## 3. Managed: Cognee Cloud (Vercel / serverless)
+
+Use Cognee Cloud for memory and a managed Postgres for persistence.
+
+```bash
+cp .env.cloud.example .env        # set COGNEE_SERVICE_URL + COGNEE_API_KEY
+docker compose up -d --build      # or deploy the API + UI to your platform
+```
+
+Required environment for a **persistent** managed API (e.g. on Vercel):
+
+```env
+MEMORYMESH_MEMORY_BACKEND=cognee_cloud
+COGNEE_ENABLED=true
+COGNEE_SERVICE_URL=https://your-tenant.cognee.ai
+COGNEE_API_KEY=your-cognee-cloud-api-key
+OPENAI_API_KEY=sk-...
+DATABASE_URL=postgresql://user:password@host:5432/memorymesh   # managed Postgres
+MEMORYMESH_DEV_INMEMORY_STORE=false
+AUTH_REQUIRED=true
+```
+
+> Important: on serverless (Vercel), a **missing `DATABASE_URL`** (or `MEMORYMESH_DEV_INMEMORY_STORE=true`) means the in-memory store is used and **accounts will not persist across cold starts** — this is the usual cause of "account created but login later fails" in a hosted deploy. Always point the managed API at a real Postgres.
+
+---
+
+## Environment variable reference
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `MEMORYMESH_MEMORY_BACKEND` | `local_cognee` \| `cognee_cloud` \| `offline_mirror` \| `auto` | `auto` |
+| `DATABASE_URL` | PostgreSQL DSN (required for persistence) | local dev DSN |
+| `MEMORYMESH_DEV_INMEMORY_STORE` | Bypass Postgres with an in-memory store (non-durable) | `false` |
+| `SIGNING_SECRET` | Session-token signing secret | dev placeholder |
+| `AUTH_REQUIRED` | Require auth for protected endpoints | `false` |
+| `COGNEE_ENABLED` | Enable a Cognee backend (vs offline mirror) | `false` |
+| `COGNEE_SERVICE_URL`, `COGNEE_API_KEY` | Cognee **Cloud** endpoint + key | – |
+| `COGNEE_LOCAL_SERVICE_URL` | Self-hosted Cognee HTTP URL (e.g. `http://cognee-local:8000`) | – |
+| `COGNEE_ALLOW_OFFLINE_FALLBACK` | Fall back to offline mirror if Cognee fails | `true` |
+| `OPENAI_API_KEY` | LLM key Cognee uses for cognify/recall | – |
+| `FRONTEND_ORIGIN` | Allowed CORS origin(s), comma-separated | `http://localhost:5173` |
+| `VITE_MEMORYMESH_API_BASE_URL` | Public API URL the browser UI calls (build/run-time) | inferred |
+
+Env templates: `.env.example` (full), `.env.oss.example` (self-hosted Cognee), `.env.cloud.example` (Cognee Cloud), `.env.vercel.example` (serverless). Mode-specific guides: [`docs/OPEN_SOURCE_COGNEE_MODE.md`](docs/OPEN_SOURCE_COGNEE_MODE.md), [`docs/COGNEE_CLOUD_MODE.md`](docs/COGNEE_CLOUD_MODE.md). API details: [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md).
 
 ## Dual-backend proof
 
@@ -325,15 +433,13 @@ One-line pitch:
 Verified in this package:
 
 ```text
-npm run build:agent                         passed
-npm run build:console                       passed
-npm --workspace @memorymesh/sdk run build   passed
-python -m compileall services/api/app packages/sdk-python/memorymesh   passed
-cd services/api && python -m pytest tests -q   10 passed
-python -c "import yaml; yaml.safe_load(open('docker-compose.yml'))"   passed
+npm run build:agent                              passed
+npm run build:console                            passed
+python -m pytest services/api/tests -q           28 passed   (run from the repo root)
+docker compose -f docker-compose.yml -f docker-compose.cognee-local.yml up -d --build   full stack healthy
 ```
 
-Full `docker compose up` should be run on a machine with Docker installed.
+Run `python -m pytest` from the repo root: one coding-agent test resolves `examples/memorymesh-sample-dashboard-service` by relative path. The full `docker compose` stack has been verified end-to-end (signup persists across restarts; `cognee_cloud` and `local_cognee` return `fallback_used=false`).
 
 ## UI intent: user-facing agent workspace
 
