@@ -36,10 +36,11 @@ The local console is primarily for:
 
 ## Local Console UX
 
-The local/self-hosted console is a separate UI from the public/cloud product shell.
+The local/self-hosted console is a separate mode of the coding-agent workspace UI
+(`apps/coding-agent-demo`), reached with the `?mode=local` flag rather than a separate app.
 
 ```text
-Development URL: http://127.0.0.1:5174/?mode=local
+Development URL: http://127.0.0.1:5173/?mode=local
 Standalone mode: open the built bundle with ?mode=local
 ```
 

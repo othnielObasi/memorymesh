@@ -202,10 +202,11 @@ The Docker override starts a separate `cognee-local` container and points the AP
 Cognee runtime out of the Vercel API bundle while still giving local/self-hosted
 deployments a real Cognee backend.
 
-For the self-hosted operator UI, open:
+For the self-hosted operator UI, open the coding-agent workspace dev server with the
+local-mode flag:
 
 ```text
-http://127.0.0.1:5174/?mode=local
+http://127.0.0.1:5173/?mode=local
 ```
 
 Local mode is intentionally separate from the cloud/product shell. It shows local Cognee status, recent memory events, manual recall, and a local recovery test without Product, Pricing, or Docs navigation.
