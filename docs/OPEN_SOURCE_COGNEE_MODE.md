@@ -7,6 +7,20 @@ deployment runs Cognee as a private HTTP service and points MemoryMesh at it wit
 `COGNEE_LOCAL_SERVICE_URL`. This avoids bundling Cognee into the main API
 serverless runtime and keeps memory infrastructure independently scalable.
 
+## Technical flow
+
+```mermaid
+flowchart LR
+  C["Client (UI / SDK / MCP / agent)"] --> API["MemoryMesh API"]
+  API -->|"local_cognee (HTTP to COGNEE_LOCAL_SERVICE_URL)"| L["cognee-local service (:8001)"]
+  L --> G["open-source Cognee<br/>cognify + knowledge graph"]
+  G --> OAI["OpenAI LLM (reasoning)"]
+  G --> EMB["hash embeddings (local, keyless)"]
+  API --> PG[("PostgreSQL<br/>memory event log")]
+```
+
+Everything runs on **your own infrastructure**: the API forwards operations to the private `cognee-local` service, which builds a knowledge graph and answers recalls via graph-completion. The LLM reasoning uses your `OPENAI_API_KEY`; embeddings default to a local hash provider (no embedding key required). A successful call returns `provider=Open-source Cognee` with `fallback_used=false`.
+
 ## Configure
 
 ```bash

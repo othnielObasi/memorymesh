@@ -159,6 +159,85 @@ MEMORYMESH_MEMORY_BACKEND=local_cognee | cognee_cloud | offline_mirror | auto
 
 Every memory response exposes `backend`, `provider`, `backend_ready`, and `fallback_used`, so judging can see what actually powered the lifecycle.
 
+## Architecture & memory-mode flows
+
+### System overview
+
+Clients (the workspace UI, SDK, MCP server, or an external agent) all call the MemoryMesh API. The API's backend router sends each memory operation to one of three backends, and always records the event in PostgreSQL.
+
+```mermaid
+flowchart LR
+  UI["Agent Workspace UI (:5173)"] --> API
+  SDK["Python / TypeScript SDK"] --> API
+  MCP["MCP Server"] --> API
+  EXT["External agents<br/>Cursor / Codex / Claude Code"] --> API
+  API["MemoryMesh API (:8000)<br/>/api/memory/*, /api/coding-agent/run"] --> ROUTER{"backend?"}
+  ROUTER -->|"offline_mirror"| MIRROR["Deterministic offline mirror"]
+  ROUTER -->|"local_cognee"| LOCAL["cognee-local (:8001)<br/>open-source Cognee"]
+  ROUTER -->|"cognee_cloud"| CLOUD["Cognee Cloud API"]
+  LOCAL --> OAI["OpenAI LLM (reasoning)"]
+  CLOUD --> CLLM["Cognee-managed LLM"]
+  API --> PG[("PostgreSQL<br/>users, runs, checkpoints, memory events")]
+  MIRROR --> PG
+```
+
+### Memory lifecycle (remember → recall → improve → forget)
+
+```mermaid
+sequenceDiagram
+  participant A as Agent / Client
+  participant M as MemoryMesh API
+  participant C as Cognee local or cloud
+  participant P as PostgreSQL
+  A->>M: remember(text, dataset, backend)
+  M->>C: store + cognify (build knowledge graph)
+  M->>P: persist memory event
+  A->>M: recall(query, dataset, backend)
+  M->>C: graph-completion search
+  C-->>M: results + LLM synthesis
+  M->>P: persist recall event
+  M-->>A: result (backend, provider, fallback_used)
+```
+
+### Mode 1 — Demo (`offline_mirror`)
+
+Keyless and deterministic. Lifecycle events are stored in PostgreSQL only; no Cognee and no LLM are involved. Best for demos, tests, and no-key previews.
+
+```mermaid
+flowchart LR
+  C["Client"] --> API["MemoryMesh API"]
+  API -->|"offline_mirror"| MIR["Deterministic offline mirror<br/>no LLM, no Cognee"]
+  MIR --> PG[("PostgreSQL<br/>memory events")]
+```
+
+### Mode 2 — Local / self-hosted (`local_cognee`)
+
+The API calls the self-hosted open-source Cognee service over HTTP. Cognee builds a knowledge graph (`cognify`) and answers recalls via graph-completion, using **your OpenAI key** for LLM reasoning (embeddings default to a local hash provider). All data stays on your infrastructure.
+
+```mermaid
+flowchart LR
+  C["Client"] --> API["MemoryMesh API"]
+  API -->|"local_cognee (HTTP)"| L["cognee-local (:8001)"]
+  L --> G["open-source Cognee<br/>cognify + knowledge graph"]
+  G --> OAI["OpenAI LLM (reasoning)"]
+  G --> EMB["hash embeddings (local)"]
+  API --> PG[("PostgreSQL<br/>memory events")]
+```
+
+### Mode 3 — Cloud (`cognee_cloud`)
+
+The API forwards operations to the managed Cognee Cloud HTTP API (authenticated with your Cognee Cloud key). Cognee Cloud runs the LLM and graph server-side; MemoryMesh still records the event locally in PostgreSQL.
+
+```mermaid
+flowchart LR
+  C["Client"] --> API["MemoryMesh API"]
+  API -->|"cognee_cloud (HTTPS + X-Api-Key)"| CC["Cognee Cloud<br/>/api/v1/remember, /recall"]
+  CC --> CLLM["Cognee-managed LLM + graph"]
+  API --> PG[("PostgreSQL<br/>memory events")]
+```
+
+`auto` resolves to `cognee_cloud` when cloud credentials are present, otherwise `local_cognee` when Cognee is enabled, otherwise `offline_mirror`.
+
 ## Secrets and provider configuration
 
 Secrets are backend-only. Do not place Cognee or LLM keys in `apps/coding-agent-demo/index.html`.

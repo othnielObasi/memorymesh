@@ -4,6 +4,18 @@ This is the **Best Use of Cognee Cloud** prize path.
 
 MemoryMesh uses the Cognee Cloud tenant URL and API key to run the same memory lifecycle against managed Cognee Cloud. The API reports `fallback_used` and per-operation status so Cloud gaps are visible instead of hidden.
 
+## Technical flow
+
+```mermaid
+flowchart LR
+  C["Client (UI / SDK / MCP / agent)"] --> API["MemoryMesh API"]
+  API -->|"cognee_cloud (HTTPS + X-Api-Key)"| CC["Cognee Cloud<br/>/api/v1/remember, /recall, /forget"]
+  CC --> CLLM["Cognee-managed LLM + knowledge graph"]
+  API --> PG[("PostgreSQL<br/>memory event log")]
+```
+
+The LLM/graph reasoning runs **server-side in Cognee Cloud** (authenticated by `COGNEE_API_KEY`); MemoryMesh records each operation in its own PostgreSQL event log. A successful call returns `provider=Cognee Cloud` with `fallback_used=false`.
+
 ## Configure
 
 ```bash
