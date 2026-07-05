@@ -6,6 +6,34 @@ MemoryMesh is designed as infrastructure. Your agent remains responsible for dom
 
 ---
 
+## Choosing a memory backend (Cloud / Local / Demo)
+
+MemoryMesh routes the same memory lifecycle to one of three backends. Pick one per deployment (server default `MEMORYMESH_MEMORY_BACKEND`) or per request/call (the `backend` field / `default_memory_backend`).
+
+| Backend | Use it for | Requires |
+|---|---|---|
+| `cognee_cloud` | Managed memory, zero infrastructure, shared teams | `COGNEE_SERVICE_URL` + `COGNEE_API_KEY` (+ `OPENAI_API_KEY`) |
+| `local_cognee` | Private/self-hosted, regulated data | a Cognee service at `COGNEE_LOCAL_SERVICE_URL` (+ `OPENAI_API_KEY`) |
+| `offline_mirror` | Demos, tests, no keys | nothing |
+
+Setup for each is in [`COGNEE_CLOUD_MODE.md`](COGNEE_CLOUD_MODE.md) and [`OPEN_SOURCE_COGNEE_MODE.md`](OPEN_SOURCE_COGNEE_MODE.md); the raw HTTP endpoints are in [`API_REFERENCE.md`](API_REFERENCE.md) under **Memory Lifecycle**.
+
+```python
+from memorymesh import MemoryMeshClient
+
+# Cloud
+client = MemoryMeshClient(base_url="https://api.example.com", default_memory_backend="cognee_cloud")
+client.remember(dataset="repo-memory", text="We chose argon2 over bcrypt.")
+client.recall(dataset="repo-memory", query="which hashing algorithm did we choose?")
+
+# Local — same code, different backend (per call or via default_memory_backend)
+client.remember(dataset="repo-memory", text="Checkout uses an idempotency key.", backend="local_cognee")
+```
+
+Every response exposes `backend`, `provider`, `backend_ready`, and `fallback_used` so you can confirm the intended backend actually served the request.
+
+---
+
 ## Integration Pattern
 
 ```text

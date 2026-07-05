@@ -18,6 +18,87 @@ Returns Fireworks AI and ElevenLabs configuration status.
 
 ---
 
+## Memory Lifecycle (Cognee)
+
+These endpoints run the Cognee memory lifecycle (`remember`, `recall`, `improve`, `forget`). Every request may include an optional `backend` field that selects **where memory lives**:
+
+| `backend` | Meaning | Requires |
+|---|---|---|
+| `cognee_cloud` | Managed **Cognee Cloud** | `COGNEE_SERVICE_URL` + `COGNEE_API_KEY` (and an LLM key such as `OPENAI_API_KEY`) |
+| `local_cognee` | Self-hosted **open-source Cognee** | a running Cognee service at `COGNEE_LOCAL_SERVICE_URL` + an LLM key |
+| `offline_mirror` | Keyless deterministic demo/fallback | nothing |
+| `auto` (default) | Cloud if cloud creds present, else local if enabled, else offline mirror | — |
+
+If `backend` is omitted, the server default (`MEMORYMESH_MEMORY_BACKEND`) is used. Every response includes `backend`, `provider`, `backend_ready`, `fallback_used`, and `status`, so a client can see exactly which backend served the request and whether it fell back.
+
+### `GET /api/memory/status?backend={backend}&probe={bool}`
+Reports readiness of a backend. With `probe=true` it actively checks the backend.
+
+```json
+{ "backend": "cognee_cloud", "provider": "Cognee Cloud", "ready": true,
+  "mode": "cloud", "service_url_configured": true, "api_key_configured": true,
+  "fallback_allowed": false, "import_error": null }
+```
+
+### `GET /api/memory/events?backend={backend}&dataset={dataset}&session_id={id}&limit={n}`
+Lists persisted memory lifecycle events (audit trail), newest first.
+
+### `POST /api/memory/remember`
+Store work memory (task contract, decision, source trail, failure, checkpoint).
+
+```json
+{ "backend": "cognee_cloud", "dataset": "repo-memory", "session_id": "auth-refactor",
+  "text": "We chose argon2 over bcrypt for password hashing.", "metadata": {} }
+```
+
+### `POST /api/memory/recall`
+Retrieve relevant memory before planning/acting. Accepts `query`, optional `top_k` (default 5).
+
+```json
+{ "backend": "local_cognee", "dataset": "repo-memory", "session_id": "auth-refactor",
+  "query": "what hashing algorithm did we choose?", "top_k": 5 }
+```
+
+### `POST /api/memory/improve`
+Store a verified lesson from feedback/test outcome. Accepts `feedback`.
+
+### `POST /api/memory/forget`
+Prune or delete memory. Accepts `dataset`, optional `session_id`, and `everything` (bool).
+
+### Response shape (remember / recall / improve / forget)
+
+```json
+{ "operation_id": "cognee_recall_…", "operation": "recall", "provider": "Cognee Cloud",
+  "backend": "cognee_cloud", "backend_ready": true, "fallback_used": false,
+  "status": "recalled", "dataset": "repo-memory", "session_id": "auth-refactor",
+  "content": "…", "results": [ … ], "error": null }
+```
+
+### Examples: choose Cloud or Local
+
+```bash
+# Cloud (managed Cognee Cloud)
+curl -X POST "$API/api/memory/remember" -H 'Content-Type: application/json' \
+  -d '{"backend":"cognee_cloud","dataset":"repo-memory","text":"Dashboard RBAC guard lives in the central middleware."}'
+
+curl -X POST "$API/api/memory/recall" -H 'Content-Type: application/json' \
+  -d '{"backend":"cognee_cloud","dataset":"repo-memory","query":"where does the RBAC guard live?"}'
+
+# Local (self-hosted open-source Cognee)
+curl -X POST "$API/api/memory/remember" -H 'Content-Type: application/json' \
+  -d '{"backend":"local_cognee","dataset":"repo-memory","text":"Checkout calls the payment gateway with an idempotency key."}'
+
+curl -X POST "$API/api/memory/recall" -H 'Content-Type: application/json' \
+  -d '{"backend":"local_cognee","dataset":"repo-memory","query":"how does checkout call the payment gateway?"}'
+```
+
+> Cognee processes (`cognify`) stored text before it is searchable, so a `recall` immediately after `remember` may return partial results until processing completes.
+
+### `POST /api/coding-agent/run`
+Runs the real local coding-agent loop (accepts an optional `backend` field like the memory endpoints).
+
+---
+
 ## Task Runtime
 
 ### `POST /api/tasks/run`

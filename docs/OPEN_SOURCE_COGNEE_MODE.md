@@ -86,6 +86,20 @@ curl "http://127.0.0.1:8000/api/memory/status?backend=local_cognee&probe=true"
 ./scripts/demo_open_source_cognee.sh
 ```
 
+## Use it (developers)
+
+Once the local Cognee service is running and `COGNEE_LOCAL_SERVICE_URL` points at it, select Local memory per request with `"backend": "local_cognee"` (or set `MEMORYMESH_MEMORY_BACKEND=local_cognee` as the server default):
+
+```bash
+curl -X POST "$API/api/memory/remember" -H 'Content-Type: application/json' \
+  -d '{"backend":"local_cognee","dataset":"repo-memory","text":"Checkout calls the payment gateway with an idempotency key."}'
+
+curl -X POST "$API/api/memory/recall" -H 'Content-Type: application/json' \
+  -d '{"backend":"local_cognee","dataset":"repo-memory","query":"how does checkout call the payment gateway?"}'
+```
+
+SDK (`default_memory_backend="local_cognee"`) and MCP (`MM_MEMORY_BACKEND=local_cognee`) usage is in [`SDK_INTEGRATION.md`](SDK_INTEGRATION.md) and [`CONNECTED_AGENTS_MCP_API_SDK.md`](CONNECTED_AGENTS_MCP_API_SDK.md); full endpoint reference is in [`API_REFERENCE.md`](API_REFERENCE.md). Verify with `GET /api/memory/status?backend=local_cognee&probe=true` (expect `service_url_configured=true`, `ready=true`).
+
 ## What judges should see
 
 - Backend label: `Open-source Cognee`
