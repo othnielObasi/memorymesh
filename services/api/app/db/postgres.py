@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import date, datetime, timezone
 from enum import Enum
@@ -70,6 +71,7 @@ class PostgresStore:
         self.pool: Optional[asyncpg.Pool] = None
         self.indexes_ready: bool = False
         self._memory_records: dict[str, dict[str, Dict[str, Any]]] | None = None
+        self._connect_lock: Optional[asyncio.Lock] = None
 
     async def connect(self) -> None:
         if self.settings.dev_inmemory_store:
@@ -83,6 +85,23 @@ class PostgresStore:
             command_timeout=self.settings.database_command_timeout_seconds,
         )
         await self.ensure_indexes()
+
+    async def _ensure_connected(self) -> None:
+        """Lazily (re)connect the store on demand.
+
+        Serverless/cold-start hosts do not always run the ASGI lifespan, and a
+        transient failure during startup used to leave the pool as ``None`` so
+        every write raised a confusing "not connected" error and no data
+        persisted. Connecting on first use makes auth and memory writes
+        self-heal instead of silently failing.
+        """
+        if self._memory_records is not None or self.pool is not None:
+            return
+        if self._connect_lock is None:
+            self._connect_lock = asyncio.Lock()
+        async with self._connect_lock:
+            if self._memory_records is None and self.pool is None:
+                await self.connect()
 
     async def close(self) -> None:
         if self.pool:
@@ -146,6 +165,7 @@ class PostgresStore:
         )
 
     async def insert_one(self, collection: str, doc: Dict[str, Any]) -> str:
+        await self._ensure_connected()
         record = self._normalise_doc(doc)
         record_id = str(record.get('_id') or record.get('id'))
         if not record_id or record_id == 'None':
@@ -196,6 +216,7 @@ class PostgresStore:
         await self.insert_one(collection, updated)
 
     async def find_one(self, collection: str, doc_id: str) -> Optional[Dict[str, Any]]:
+        await self._ensure_connected()
         if self._memory_records is not None:
             doc = self._memory_records.get(collection, {}).get(str(doc_id))
             return dict(doc) if doc else None
@@ -223,6 +244,7 @@ class PostgresStore:
         limit: int = 50,
         sort: List[tuple] | None = None,
     ) -> List[Dict[str, Any]]:
+        await self._ensure_connected()
         if self._memory_records is not None:
             values = [dict(doc) for doc in self._memory_records.get(collection, {}).values()]
             for key, value in (query or {}).items():
@@ -238,6 +260,7 @@ class PostgresStore:
         return [self._decode_row(row) for row in rows if row]
 
     async def count_documents(self, collection: str, query: Dict[str, Any] | None = None) -> int:
+        await self._ensure_connected()
         if self._memory_records is not None:
             return len(await self.find_many(collection, query=query, limit=1_000_000))
         where, params = self._build_where(collection, query or {})
@@ -248,6 +271,7 @@ class PostgresStore:
         return await self.find_one_by('task_checkpoints', {'task_id': task_id}, sort=[('created_at', DESCENDING)])
 
     async def delete_all(self) -> None:
+        await self._ensure_connected()
         if self._memory_records is not None:
             self._memory_records.clear()
             return
@@ -256,7 +280,10 @@ class PostgresStore:
 
     def _acquire(self):
         if self.pool is None:
-            raise RuntimeError('PostgreSQL not connected')
+            raise RuntimeError(
+                'PostgreSQL is not connected. Set a reachable DATABASE_URL (and keep '
+                'MEMORYMESH_DEV_INMEMORY_STORE unset/false) so accounts and memory persist.'
+            )
         return self.pool.acquire()
 
     def _sort_memory_docs(self, docs: list[Dict[str, Any]], sort: Sequence[tuple] | None) -> list[Dict[str, Any]]:

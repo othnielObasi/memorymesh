@@ -32,13 +32,38 @@ Run everything from the repo root. Python commands require the virtualenv at `.v
   the venv (`source .venv/bin/activate`) before starting the API**; that puts a `python`
   (with pytest) on PATH for the agent's subprocess. Without it, `/api/coding-agent/run` and
   two `test_real_coding_agent.py` tests fail with `FileNotFoundError: 'python'`.
-- **No keys / no Docker needed to run and test.** Start the API with
+- **No keys / no Docker needed for a quick keyless run.** Start the API with
   `MEMORYMESH_DEV_INMEMORY_STORE=true`, `MEMORYMESH_MEMORY_BACKEND=offline_mirror`,
   `AUTH_REQUIRED=false`, `MEMORYMESH_ALLOW_ANY_LOCAL_PROJECT=true`. This bypasses PostgreSQL
   and Cognee and gives a fully keyless, deterministic end-to-end path. The `local_cognee`
   and `cognee_cloud` backends additionally require the heavy `cognee==1.1.2` package
   (`services/cognee-local`) and/or Cognee Cloud credentials, so `services/cognee-local`
   tests are skipped in this setup (`ModuleNotFoundError: No module named 'cognee'`).
+
+### Persistence (accounts / login) and memory modes
+
+- **Auth data only persists with a real PostgreSQL.** The in-memory store
+  (`MEMORYMESH_DEV_INMEMORY_STORE=true`) is fine for quick tests but is wiped on every
+  restart (and on serverless cold starts), which makes "account created but login later
+  fails" symptoms. For login/account-creation testing, run against Postgres and do **not**
+  set `MEMORYMESH_DEV_INMEMORY_STORE`.
+- PostgreSQL 16 is installed in this VM. Start it (no systemd here) and run the API against it:
+  ```
+  sudo pg_ctlcluster 16 main start
+  # role/db already created: memorymesh / memorymesh / memorymesh_dev
+  cd services/api && DATABASE_URL=postgresql://memorymesh:memorymesh@127.0.0.1:5432/memorymesh_dev \
+    AUTH_REQUIRED=false uvicorn app.main:app --host 0.0.0.0 --port 8000
+  ```
+  If the role/db are missing, create them: `sudo -u postgres createdb -O memorymesh memorymesh_dev`
+  (and `CREATE ROLE memorymesh LOGIN PASSWORD 'memorymesh';`). The store self-heals its
+  connection on first use, so `/health` should report `postgres_connected: true`.
+- **Memory modes and what each needs:**
+  - `offline_mirror` (Demo) — keyless, always ready; lifecycle events persist in Postgres.
+  - `cognee_cloud` (Cloud) — needs `COGNEE_SERVICE_URL` + `COGNEE_API_KEY` (and usually
+    `OPENAI_API_KEY`). Without them `/api/memory/status?backend=cognee_cloud` reports not ready.
+  - `local_cognee` (Local) — needs the `cognee` package running via
+    `services/cognee-local` (`npm run demo:oss:local`) plus an LLM key (`OPENAI_API_KEY`).
+  - These provider keys are injected as Cursor **Secrets** (env vars); they are not committed.
 - **Frontend → API wiring:** set `VITE_MEMORYMESH_API_BASE_URL=http://127.0.0.1:8000` for
   the Vite dev servers so the UI talks to the local API.
 - **Local self-hosted memory console** is a `?mode=local` flag on the `coding-agent-demo`
