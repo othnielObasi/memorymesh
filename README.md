@@ -40,10 +40,6 @@ Latest observed state:
 - Cognee Cloud path: `ready: true`.
 - SSH is reachable on port `22`; HTTP port `80` is not currently open. The public UI/API are exposed directly on ports `5173` and `8000`.
 
-Submission guides:
-
-- **Cognee Cloud track:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
-- **Open-source Cognee track:** [`docs/SUBMISSION_OPEN_SOURCE.md`](docs/SUBMISSION_OPEN_SOURCE.md)
 
 ## What MemoryMesh is
 
