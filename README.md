@@ -20,6 +20,7 @@ Latest verified Vultr deployment: `149.28.238.73`.
 | Service | URL | Current status |
 |---|---|---|
 | Agent workspace UI | [http://149.28.238.73:5173](http://149.28.238.73:5173/) | HTTP 200 |
+| Agent workspace UI (Vercel) | [https://memorymesh-two.vercel.app](https://memorymesh-two.vercel.app/) | Hosted frontend |
 | MemoryMesh API | [http://149.28.238.73:8000](http://149.28.238.73:8000/) | `/health` OK, `postgres_connected: true` |
 
 Deployment probes:
