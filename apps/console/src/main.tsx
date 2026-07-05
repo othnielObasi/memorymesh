@@ -67,10 +67,41 @@ const capabilities = [
 ];
 
 const solutions = [
-  ["Software engineering", "Recoverable coding work across repo files, tests, architecture decisions, and documentation.", "Coding agents can resume without losing the task contract, files inspected, failed tests, or next safe action."],
-  ["Compliance review", "Evidence-heavy reviews with traceable tool outputs, task versions, and final decision records.", "Reviewers can inspect the evidence path, model route, checkpoint history, and memory used in the workflow."],
-  ["Finance operations", "Retry-safe agent workflows around payments, approvals, reconciliations, and account updates.", "Idempotency records reduce the risk of repeated external actions after network or worker failures."],
-  ["IT incident response", "Incident agents that preserve diagnostics across logs, alerts, deploy records, and runbooks.", "Operators can restore the last safe investigation state and continue with a clear recovery timeline."],
+  {
+    name: "Software engineering",
+    tone: "green" as Tone,
+    tag: "Coding agent · checkpoints",
+    headline: "Recoverable coding work across repo files, tests, architecture decisions, and documentation.",
+    body: "Coding agents can resume without losing the task contract, files inspected, failed tests, or next safe action.",
+  },
+  {
+    name: "Compliance review",
+    tone: "violet" as Tone,
+    tag: "Tool evidence · audit",
+    headline: "Evidence-heavy reviews with traceable tool outputs, task versions, and final decision records.",
+    body: "Reviewers can inspect the evidence path, model route, checkpoint history, and memory used in the workflow.",
+  },
+  {
+    name: "Finance operations",
+    tone: "amber" as Tone,
+    tag: "Idempotency",
+    headline: "Retry-safe agent workflows around payments, approvals, reconciliations, and account updates.",
+    body: "Idempotency records reduce the risk of repeated external actions after network or worker failures.",
+  },
+  {
+    name: "IT incident response",
+    tone: "blue" as Tone,
+    tag: "Recovery engine",
+    headline: "Incident agents that preserve diagnostics across logs, alerts, deploy records, and runbooks.",
+    body: "Operators can restore the last safe investigation state and continue with a clear recovery timeline.",
+  },
+];
+
+const solutionStats: Array<[string, string]> = [
+  ["3", "Memory backends: local Cognee, Cognee Cloud, offline mirror"],
+  ["4", "Memory lifecycle verbs: remember, recall, improve, forget"],
+  ["3", "Connect paths: REST API, SDKs, and MCP server"],
+  ["1", "Durable receipt for every run, checkpoint, and recovery"],
 ];
 
 const integrations = [
@@ -600,6 +631,44 @@ function ArchitecturePage({ setPage, onLogin }: { setPage: (page: Page) => void;
   );
 }
 
+function Footer({ setPage }: { setPage: (page: Page) => void }) {
+  const columns: Array<[string, Array<[string, Page]>]> = [
+    ["Product", [["Capabilities", "capabilities"], ["Architecture", "architecture"], ["Solutions", "solutions"]]],
+    ["Developers", [["Developers", "developers"], ["Integrations", "integrations"], ["Agent demo", "agent"]]],
+    ["Cognee", [["Cognee path", "google"], ["Home", "home"]]],
+  ];
+  return (
+    <footer className="border-t border-neutral-200 bg-[#f7f7f5]">
+      <div className="mx-auto grid max-w-6xl gap-8 px-5 py-12 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div>
+          <Logo />
+          <p className="mt-4 max-w-xs text-sm leading-6 text-neutral-500">
+            A runtime continuity layer for long-running agents: durable memory, checkpoints, recovery, and audit-ready receipts.
+          </p>
+        </div>
+        {columns.map(([title, links]) => (
+          <div key={title}>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-neutral-400">{title}</p>
+            <div className="mt-4 space-y-2">
+              {links.map(([label, page]) => (
+                <button key={label} type="button" onClick={() => setPage(page)} className="block text-sm font-semibold text-neutral-600 hover:text-neutral-950">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="border-t border-neutral-200">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-2 px-5 py-5 text-xs font-medium text-neutral-400 sm:flex-row sm:items-center">
+          <span>© {new Date().getFullYear()} MemoryMesh. Cognee-powered continuity for AI agents.</span>
+          <span>Built for the Cognee hackathon · Open source + Cognee Cloud</span>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 function SolutionsPage({ setPage, onLogin }: { setPage: (page: Page) => void; onLogin: () => void }) {
   return (
     <main className="min-h-screen bg-[#fbfaf7] text-neutral-950">
@@ -608,16 +677,64 @@ function SolutionsPage({ setPage, onLogin }: { setPage: (page: Page) => void; on
         <Badge tone="green">Enterprise solutions</Badge>
         <h1 className="mt-5 max-w-4xl text-5xl font-black leading-[0.95] tracking-[-0.065em] md:text-7xl">Production patterns for recoverable agents.</h1>
         <p className="mt-6 max-w-2xl text-base leading-8 text-neutral-600">MemoryMesh supports workflows where losing state, repeating work, or hiding tool evidence is unacceptable.</p>
+        <div className="mt-8 flex flex-wrap gap-3">
+          <button type="button" onClick={() => setPage("architecture")} className="rounded-full bg-neutral-950 px-6 py-3 text-sm font-black text-white hover:bg-neutral-800">See architecture</button>
+          <button type="button" onClick={() => setPage("capabilities")} className="rounded-full bg-white px-6 py-3 text-sm font-black text-neutral-950 ring-1 ring-neutral-200 hover:ring-neutral-300">Explore capabilities</button>
+          <button type="button" onClick={onLogin} className="rounded-full bg-white px-6 py-3 text-sm font-black text-emerald-700 ring-1 ring-emerald-200 hover:ring-emerald-300">Open console</button>
+        </div>
+
+        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {solutionStats.map(([value, label]) => (
+            <div key={label} className="rounded-[1.5rem] bg-white p-5 shadow-sm ring-1 ring-neutral-200">
+              <p className="text-4xl font-black tracking-tight">{value}</p>
+              <p className="mt-2 text-sm leading-6 text-neutral-500">{label}</p>
+            </div>
+          ))}
+        </div>
+
         <div className="mt-10 grid gap-4 md:grid-cols-2">
-          {solutions.map(([name, headline, description]) => (
-            <div key={name} className="rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-neutral-200">
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-emerald-700">{name}</p>
-              <h2 className="mt-3 text-2xl font-black tracking-[-0.04em]">{headline}</h2>
-              <p className="mt-4 text-sm leading-7 text-neutral-600">{description}</p>
+          {solutions.map((solution) => (
+            <div
+              key={solution.name}
+              className="group flex flex-col rounded-[2rem] bg-white p-6 shadow-sm ring-1 ring-neutral-200 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-neutral-950/5 hover:ring-neutral-300"
+            >
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <Badge tone={solution.tone}>{solution.name}</Badge>
+                <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-bold text-neutral-500">{solution.tag}</span>
+              </div>
+              <h2 className="text-2xl font-black tracking-[-0.04em]">{solution.headline}</h2>
+              <p className="mt-4 flex-1 text-sm leading-7 text-neutral-600">{solution.body}</p>
+              <button
+                type="button"
+                onClick={() => setPage("architecture")}
+                className="mt-5 inline-flex items-center gap-2 text-sm font-black text-neutral-950"
+              >
+                See how it works
+                <span className="transition-transform group-hover:translate-x-1">→</span>
+              </button>
             </div>
           ))}
         </div>
       </section>
+
+      <section className="mx-auto max-w-6xl px-5 pb-14">
+        <OperatingMap />
+      </section>
+
+      <section className="border-t border-neutral-200 bg-neutral-950 text-white">
+        <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-6 px-5 py-14 md:flex-row md:items-center">
+          <div>
+            <h2 className="text-3xl font-black tracking-[-0.05em] md:text-4xl">Ready to make your agents recoverable?</h2>
+            <p className="mt-3 max-w-xl text-sm leading-7 text-neutral-300">Start from the reference agent demo, then connect your own agents through the API, SDKs, or MCP.</p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" onClick={() => setPage("agent")} className="rounded-full bg-white px-6 py-3 text-sm font-black text-neutral-950 hover:bg-neutral-100">View agent demo</button>
+            <button type="button" onClick={() => setPage("developers")} className="rounded-full bg-white/10 px-6 py-3 text-sm font-black text-white ring-1 ring-white/15 hover:bg-white/15">Read developer docs</button>
+          </div>
+        </div>
+      </section>
+
+      <Footer setPage={setPage} />
     </main>
   );
 }

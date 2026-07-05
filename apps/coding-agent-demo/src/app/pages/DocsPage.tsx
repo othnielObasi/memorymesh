@@ -2,8 +2,10 @@ import { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Brain,
+  Check,
   CheckCircle2,
   Code2,
+  Copy,
   KeyRound,
   Package,
   Search,
@@ -381,11 +383,34 @@ const GUIDES: Guide[] = [
 const GUIDE_LOOKUP = Object.fromEntries(GUIDES.map((guide) => [guide.key, guide])) as Record<GuideKey, Guide>;
 
 function CodeBlock({ label, language, children }: { label: string; language: string; children: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(children);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard access can be blocked; fail silently rather than break the page.
+    }
+  };
+
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-[#090d16]">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <span className="text-xs font-mono-ui text-muted-foreground">{label}</span>
-        <span className="text-xs text-muted-foreground">{language}</span>
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <span className="truncate text-xs font-mono-ui text-muted-foreground">{label}</span>
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="text-xs text-muted-foreground">{language}</span>
+          <button
+            type="button"
+            onClick={handleCopy}
+            aria-label={`Copy ${label} snippet`}
+            className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-white/5 hover:text-foreground"
+          >
+            {copied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+            <span>{copied ? 'Copied' : 'Copy'}</span>
+          </button>
+        </div>
       </div>
       <pre className="hide-scrollbar max-h-[520px] overflow-auto p-5 text-[13px] leading-relaxed text-[#90a0c7] font-mono-ui">
         <code>{children}</code>
@@ -413,7 +438,6 @@ function GuideChecklist({ title, items, color }: { title: string; items: string[
 export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
   const [activeKey, setActiveKey] = useState<GuideKey>('quick');
   const [searchQuery, setSearchQuery] = useState('');
-  const activeGuide = GUIDE_LOOKUP[activeKey];
 
   const filteredGuides = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -433,6 +457,11 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
         .includes(query);
     });
   }, [searchQuery]);
+
+  // Keep the content panel in sync with the filtered list: if the selected
+  // guide is filtered out, fall back to the first match so the page never
+  // shows a guide that is no longer in the sidebar.
+  const activeGuide = filteredGuides.find((guide) => guide.key === activeKey) ?? filteredGuides[0] ?? null;
 
   const openLocalConsole = () => window.location.assign('/?mode=local');
 
@@ -474,6 +503,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
+              aria-label="Search documentation guides"
               placeholder="Search docs by mode, SDK, MCP, API keys, privacy..."
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -490,12 +520,13 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
             <nav className="space-y-1">
               {filteredGuides.map((guide) => {
                 const Icon = guide.icon;
-                const active = guide.key === activeKey;
+                const active = guide.key === activeGuide?.key;
                 return (
                   <button
                     key={guide.key}
                     type="button"
                     onClick={() => setActiveKey(guide.key)}
+                    aria-current={active ? 'true' : undefined}
                     className={`w-full rounded-lg border-l-2 px-3 py-3 text-left transition-colors ${
                       active
                         ? 'border-primary bg-primary/8 text-foreground'
@@ -527,6 +558,7 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
           </aside>
 
           <main className="min-w-0">
+            {activeGuide ? (
             <article className="rounded-xl border border-border bg-card">
               <header className="border-b border-border p-8">
                 <div className="mb-5 flex items-start justify-between gap-5">
@@ -616,6 +648,22 @@ export function DocsPage({ onNavigate, onEnterWorkspace }: Props) {
                 </div>
               </div>
             </article>
+            ) : (
+              <div className="flex min-h-[320px] flex-col items-center justify-center rounded-xl border border-border bg-card p-12 text-center">
+                <Search className="mb-4 h-6 w-6 text-muted-foreground" />
+                <p className="mb-1 text-base font-semibold text-foreground">No matching guide</p>
+                <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
+                  Nothing matches “{searchQuery}”. Try a broader term like “MCP”, “API”, “SDK”, or “memory”.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="mt-5 rounded-lg border border-border px-4 py-2 text-sm text-foreground transition-colors hover:border-primary/40"
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
           </main>
         </div>
       </section>
