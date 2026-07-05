@@ -13,6 +13,32 @@ The project is designed to be strong on **both Cognee hackathon grand-prize trac
 
 The same real agent workflow runs on both backends.
 
+## Live deployments
+
+Latest verified Vultr deployment: `149.28.238.73`.
+
+| Service | URL | Current status |
+|---|---|---|
+| Agent workspace UI | [http://149.28.238.73:5173](http://149.28.238.73:5173/) | HTTP 200 |
+| MemoryMesh API | [http://149.28.238.73:8000](http://149.28.238.73:8000/) | `/health` OK, `postgres_connected: true` |
+
+Deployment probes:
+
+```text
+GET http://149.28.238.73:8000/health
+GET http://149.28.238.73:8000/ready
+GET http://149.28.238.73:8000/api/memory/status?backend=local_cognee&probe=true
+GET http://149.28.238.73:8000/api/memory/status?backend=cognee_cloud&probe=true
+```
+
+Latest observed state:
+
+- API liveness: `status: ok`, `environment: production`, `postgres_connected: true`.
+- API readiness: `ready: true`, `indexes_ready: true`.
+- Open-source/self-hosted Cognee path: `ready: true`.
+- Cognee Cloud path: `ready: true`.
+- SSH is reachable on port `22`; HTTP port `80` is not currently open. The public UI/API are exposed directly on ports `5173` and `8000`.
+
 Submission guides:
 
 - **Cognee Cloud track:** [`docs/SUBMISSION.md`](docs/SUBMISSION.md)
