@@ -19,11 +19,12 @@ import time
 import urllib.error
 import urllib.request
 from pathlib import Path
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
 LOG_DIR = ROOT / ".memorymesh-local" / "logs"
-DATA_DIR = ROOT / ".memorymesh-local" / "cognee"
+RUNS_DIR = ROOT / ".memorymesh-local" / "runs"
 
 
 def read_env_file(path: Path) -> dict[str, str]:
@@ -84,7 +85,9 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=120)
     args = parser.parse_args()
 
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    run_dir = RUNS_DIR / f"cognee-{int(time.time())}-{uuid4().hex[:8]}"
+    data_dir = run_dir / "cognee"
+    data_dir.mkdir(parents=True, exist_ok=True)
     env_file_values = {
         **read_env_file(ROOT / ".env"),
         **read_env_file(ROOT / "services" / "api" / ".env"),
@@ -101,10 +104,10 @@ def main() -> int:
     local_service_env.update(
         {
             "PYTHONPATH": str(ROOT / "services" / "cognee-local"),
-            "DATA_ROOT_DIRECTORY": str(DATA_DIR / ".data_storage"),
-            "SYSTEM_ROOT_DIRECTORY": str(DATA_DIR / ".cognee_system"),
-            "CACHE_ROOT_DIRECTORY": str(DATA_DIR / ".cognee_cache"),
-            "COGNEE_LOGS_DIR": str(DATA_DIR / "logs"),
+            "DATA_ROOT_DIRECTORY": str(data_dir / ".data_storage"),
+            "SYSTEM_ROOT_DIRECTORY": str(data_dir / ".cognee_system"),
+            "CACHE_ROOT_DIRECTORY": str(data_dir / ".cognee_cache"),
+            "COGNEE_LOGS_DIR": str(data_dir / "logs"),
             "EMBEDDING_PROVIDER": os.getenv("EMBEDDING_PROVIDER", "hash"),
             "LLM_PROVIDER": os.getenv("LLM_PROVIDER", "openai"),
             "ENABLE_BACKEND_ACCESS_CONTROL": os.getenv("ENABLE_BACKEND_ACCESS_CONTROL", "false"),

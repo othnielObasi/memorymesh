@@ -265,6 +265,8 @@ class ProductionAgentRuntime:
         run_id = new_id("agent_run")
         task_id = new_id("task")
         memory_ops = [self._normalise_memory_op(op) for op in memory_operations if op]
+        memory_backend = next((op.get("backend") for op in memory_ops if op.get("backend")), None)
+        memory_provider = next((op.get("provider") for op in memory_ops if op.get("provider")), None)
         receipt = {
             **tenant_context,
             "run_id": run_id,
@@ -277,6 +279,8 @@ class ProductionAgentRuntime:
             "idempotent_replay": False,
             "final_output": final_output,
             "evidence": evidence,
+            "memory_backend": memory_backend,
+            "memory_provider": memory_provider,
             "memory_operations": memory_ops,
             "tool_traces": tool_traces,
             "recovery": recovery,

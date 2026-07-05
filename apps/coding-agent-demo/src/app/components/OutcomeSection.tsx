@@ -33,8 +33,8 @@ function tokenize(code: string): React.ReactNode[] {
 function CodeBlock({ code }: { code: string }) {
   const lines = code.split('\n');
   return (
-    <div className="rounded-lg bg-muted/20 border border-border overflow-x-auto">
-      <div className="flex min-w-0">
+    <div className="rounded-lg bg-muted/20 border border-border overflow-hidden">
+      <div className="flex min-w-0 max-w-full">
         {/* Line numbers */}
         <div className="select-none px-3 py-4 text-right border-r border-border bg-muted/20 shrink-0">
           {lines.map((_, i) => (
@@ -42,9 +42,9 @@ function CodeBlock({ code }: { code: string }) {
           ))}
         </div>
         {/* Code */}
-        <pre className="p-4 text-xs font-mono-ui leading-5 overflow-x-auto flex-1">
+        <pre className="min-w-0 flex-1 overflow-x-hidden whitespace-pre-wrap break-words p-4 text-xs font-mono-ui leading-5">
           <code>{lines.map((line, i) => (
-            <div key={i}>{tokenize(line)}</div>
+            <div key={i} className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{tokenize(line)}</div>
           ))}</code>
         </pre>
       </div>
@@ -64,16 +64,16 @@ export function OutcomeSection({ outcomeData }: Props) {
     <div className="space-y-3">
       <h3 className="text-lg font-semibold text-foreground">Outcome evidence</h3>
 
-      <Card className="p-5 bg-card border-border">
+      <Card className="p-5 bg-card border-border overflow-hidden">
         <div className="space-y-4">
           {/* Summary */}
           <div className="flex items-start gap-3">
             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center shrink-0">
               <FileCode className="w-4 h-4 text-white" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h4 className="font-semibold text-foreground text-sm mb-1">Work completed</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">{outcomeData.summary}</p>
+              <p className="text-sm text-muted-foreground leading-relaxed break-words [overflow-wrap:anywhere]">{outcomeData.summary}</p>
             </div>
           </div>
 
@@ -92,11 +92,11 @@ export function OutcomeSection({ outcomeData }: Props) {
 
             <TabsContent value="changes" className="mt-4 space-y-2">
               {outcomeData.changes.map((c, i) => (
-                <div key={i} className="flex items-start gap-3 p-3 bg-muted/20 rounded-lg border border-border">
+                <div key={i} className="flex min-w-0 items-start gap-3 overflow-hidden rounded-lg border border-border bg-muted/20 p-3">
                   <div className="mt-0.5 shrink-0">{CHANGE_ICONS[c.type] ?? CHANGE_ICONS.modified}</div>
                   <div className="flex-1 min-w-0">
-                    <code className="text-xs font-mono-ui text-foreground/80">{c.file}</code>
-                    <p className="text-xs text-muted-foreground mt-0.5">{c.description}</p>
+                    <code className="block max-w-full truncate text-xs font-mono-ui text-foreground/80" title={c.file}>{c.file}</code>
+                    <p className="mt-0.5 text-xs text-muted-foreground break-words [overflow-wrap:anywhere]">{c.description}</p>
                   </div>
                   <span className={`text-xs font-mono-ui shrink-0 ${c.type === 'created' ? 'text-green-400' : 'text-primary'}`}>
                     {c.type}
